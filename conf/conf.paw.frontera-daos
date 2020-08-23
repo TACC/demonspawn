@@ -1,0 +1,24 @@
+#
+# booker configuration for point-to-point testing
+#
+user eijkhout
+modules intel/19.0.5 impi/19.0.7
+account A-ccsc
+#
+ppn 52
+#
+queue normal
+scriptdir /work/00434/eijkhout/booker/launch/paw.scripts
+outputdir /work/00434/eijkhout/booker/launch/paw.output
+nodes 2
+suite name:paw-mpi-p2p type:mpi dir:/work/00434/eijkhout/paw/installation-frontera p2p_*
+nodes 2:5:10:42
+suite name:paw-mpi-col type:mpi dir:/work/00434/eijkhout/paw/installation-frontera col_*
+#
+queue daos
+scriptdir /work/00434/eijkhout/booker/launch/paw.scripts-daos
+outputdir /work/00434/eijkhout/booker/launch/paw.output-daos
+nodes 2
+suite name:paw-daos-p2p type:mpi dir:/work/00434/eijkhout/paw/installation-frontera-daos p2p_*
+nodes 2:5:10:42
+suite name:paw-mpi-col type:mpi dir:/work/00434/eijkhout/paw/installation-frontera-daos col_*

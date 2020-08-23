@@ -1,0 +1,9 @@
+user eijkhout
+modules intel/19.0.5 impi/19.0.7
+account A-ccsc
+queue normal
+scriptdir /work/00434/eijkhout/booker/launch/paw.scripts-col
+outputdir /work/00434/eijkhout/booker/launch/paw.output-col
+nodes 2:5:10:50
+ppn 40
+suite name:paw-mpi type:mpi dir:/work/00434/eijkhout/paw/installation-frontera col_*
