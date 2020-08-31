@@ -2,8 +2,8 @@ user eijkhout
 modules intel/18.0.2 impi/18.0.2
 account A-ccsc
 queue development
-scriptdir /work/00434/eijkhout/demonspawn/launch/paw.scripts.stampede2
-outputdir /work/00434/eijkhout/demonspawn/launch/paw.output.stampede2
+scriptdir /work/00434/eijkhout/demonspawn/paw.scripts.stampede2
+outputdir /work/00434/eijkhout/demonspawn/paw.output.stampede2
 nodes 2
 ppn 2
 suite name:paw-mpi-p2p type:mpi dir:/work/00434/eijkhout/paw/installation-stampede2 p2p_*

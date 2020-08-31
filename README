@@ -19,8 +19,8 @@ Example:
 user eijkhout
 account A-ccsc
 modules intel/18.0.2 impi/18.0.2
-scriptdir /work/00434/eijkhout/booker/launch/paw.scripts
-outputdir /work/00434/eijkhout/booker/launch/paw.output
+scriptdir /your/dir/ectory/paw.scripts
+outputdir /you/dir/ectory//paw.output
 nodes 4
 suite name:paw-mpi type:mpi dir:/work/00434/eijkhout/paw/installation p2p_*
 

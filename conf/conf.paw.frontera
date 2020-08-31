@@ -2,8 +2,8 @@ user eijkhout
 modules intel/19.0.5 impi/19.0.7
 account A-ccsc
 queue normal
-scriptdir /work/00434/eijkhout/demonspawn/launch/paw.scripts
-outputdir /work/00434/eijkhout/demonspawn/launch/paw.output
+scriptdir /work/00434/eijkhout/demonspawn/paw.scripts
+outputdir /work/00434/eijkhout/demonspawn/paw.output
 nodes 2
 ppn 1
 suite name:paw-mpi-p2p type:mpi dir:/work/00434/eijkhout/paw/installation-frontera p2p_*
