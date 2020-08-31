@@ -309,7 +309,6 @@ class Queues():
 
 class TestSuite():
   def __init__(self,suite,configuration):
-    print("testsuite with configuration: {}".format(configuration))
     ## this needs to come from the `suite' list
     self.name = configuration.pop("name","testsuite")
     self.configuration = configuration
