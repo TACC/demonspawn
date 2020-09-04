@@ -1,0 +1,11 @@
+user eijkhout
+modules intel/18.0.2 impi/18.0.2
+account A-ccsc
+queue normal
+let rootdir = /work/00434/eijkhout/demonspawn
+let stressdir  = /work/00434/eijkhout/parallel-programming-private/mpi-stresstest
+scriptdir %[rootdir]/stress.scripts.frontera
+outputdir %[rootdir]/stress.output.frontera
+nodes 2
+ppn 1
+suite name:mpi-stress-p2p type:mpi dir:%[stressdir]/intel-18.0.2_impi-18.0.2 tags
