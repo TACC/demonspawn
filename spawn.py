@@ -171,7 +171,11 @@ def parse_configuration(filename):
       fields = specline.split()
       if len(fields)==2:
         key,value = fields
-        if key=="nodes":
+        if key=="system":
+          if value!=os.environ["TACC_SYSTEM"]:
+            print("This configuration can only be run on <<{}>>".format(value))
+            sys.exit(1)
+        elif key=="nodes":
           try :
             options[key] = [ int(i) for i in value.split(":") ]
           except:

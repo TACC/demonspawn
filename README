@@ -16,14 +16,19 @@ python3 batch.py -c configuration_file
 where the configuration file specfies job parameters and the specification of what is to be run.
 Example:
 
+system frontera
 user eijkhout
 account A-ccsc
 modules intel/18.0.2 impi/18.0.2
-scriptdir /your/dir/ectory/paw.scripts
-outputdir /you/dir/ectory//paw.output
+let rootdir = /your/dir/ectory
+scriptdir %[rootdir]/paw.scripts
+outputdir %[rootdir]/paw.output
 nodes 4
 suite name:paw-mpi type:mpi dir:/work/00434/eijkhout/paw/installation p2p_*
 
+The following fields are defined:
+
+system : enforce the system on which a configuration can be run
 user : not used
 account: slurm identification of the account that the parallel run is charged to.
 modules: to be loaded at the start of the job. It is assumed that the testsuite
@@ -32,6 +37,7 @@ scriptdir : temporary directory where slurm scripts will go.
 outputdir : directory from which the slurm jobs are launched, and which,
     most likely, will wind up containing generated output.
 nodes : node count for the testsuite, unless the suite itself overrides this.
+    node count value can also be a colon-separated list, for scalability studies.
 
 suite : list of key:value pairs, followed by a list of programs
 keys:
