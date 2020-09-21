@@ -1,6 +1,7 @@
 #
 # demonspawn configuration for point-to-point testing
 #
+system frontera
 user eijkhout
 modules intel/19.0.5 impi/19.0.7
 account A-ccsc

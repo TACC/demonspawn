@@ -1,0 +1,12 @@
+system frontera
+user eijkhout
+modules intel/19.0.5 impi/19.0.7
+account A-ccsc
+queue normal
+let rootdir = /work/00434/eijkhout/demonspawn
+let pawdir  = /work/00434/eijkhout/paw
+scriptdir %[rootdir]/paw.scripts.frontera
+outputdir %[rootdir]/paw.output.frontera
+nodes 2
+ppn 1
+suite name:paw-mpi-p2p type:mpi dir:%[pawdir]/installation-frontera p2p_*
