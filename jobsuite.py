@@ -159,7 +159,10 @@ def parse_suite(suite_option_list):
     else:
       #print("benchmark suite app {}".format(opt))
       if re.search(r'\*',opt):
-        p = sp.Popen( "cd {} ; ls {}".format( suite["dir"],opt ),\
+        dir = suite["dir"]
+        if not os.path.exists(dir) or not os.path.isdir(dir):
+          raise Exception("No such directory: {}".format(dir))
+        p = sp.Popen( "cd {} ; ls {}".format( dir,opt ),\
                       stdout=sp.PIPE,shell=True )
         out,err = p.communicate()
         for a in out.split():
