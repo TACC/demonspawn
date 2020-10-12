@@ -1,10 +1,10 @@
 system frontera
 user eijkhout
-modules intel/19.0.5 impi/19.0.7
+modules intel/19.1.1 impi/19.0.7
 account A-ccsc
 queue normal
 let rootdir = /work/00434/eijkhout/demonspawn
-let pawdir  = /work/00434/eijkhout/paw
+let pawdir  = /work/00434/eijkhout/paw-%[modules]
 scriptdir %[rootdir]/paw.scripts.%[system]
 outputdir %[rootdir]/paw.output.%[system]
 nodes 2

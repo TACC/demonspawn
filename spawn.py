@@ -147,11 +147,60 @@ def macros_substitute(line,macros):
   subline = line
   for m in macros.keys():
     m_search = r'\%\[{}\]'.format(m)
-    subline = re.sub( m_search, macros[m], subline )
-    #print("replacing <<{}={}>> in <<{}>> gives <<{}>>".format(m,macros[m],line,subline))
+    if re.search(m_search,line):
+      replacement_text = macros[m]
+      if m=="modules":
+        replacement_text = '_'.join( [ re.sub('/','-',m) for m in replacement_text ] )
+      print("{} -> {}".format(m,replacement_text))
+      subline = re.sub( m_search, replacement_text, subline )
+      #print("replacing <<{}={}>> in <<{}>> gives <<{}>>".format(m,macros[m],line,subline))
   return subline
 
 run_user = "eijkhout"
+def LetLine(specline,macros):
+  letline = re.match(r'^ *(let )(.*)$',specline)
+  if letline:
+    name,val = macro_parse(letline.groups()[1])
+    macros[name] = val
+    return True
+  else: return False
+def KeyValLine(specline,macros,options,system):
+    fields = specline.split()
+    if len(fields)==2:
+      key,value = fields
+      if key=="system":
+        if value!=system:
+          print("This configuration can only be run on <<{}>>".format(value))
+          sys.exit(1)
+        macros[key] = value
+      elif key=="nodes":
+        try :
+          options[key] = [ int(i) for i in value.split(":") ]
+        except:
+          print("Could not parse node specification <<{}>>".format(value))
+          raise
+      else:
+        value = macros_substitute(value,macros)
+        options[key] = value
+      print("setting key={} to value={}".format(key,value))
+      return True
+    else: return False
+def SpecLine(specline,macros,options,suites):
+    fields = specline.split()
+    key = fields[0]
+    value = [ macros_substitute(f,macros) for f in fields[1:] ]
+    if key=="suite":
+      # we can have more than one suite per configuration,
+      # each uses the currect options
+      print("defining testsuite with options=<<{}>>, configuration=<<{}>>"\
+            .format(value,options))
+      s = TestSuite( value,options )
+      suites.append(s)
+      print("defining suite <<{}>>".format(s))
+    else:
+      options[key] = value
+      print("setting key={} to value={}".format(key,value))
+    return True
 def parse_configuration(filename):
   options = {}
   suites = []
@@ -164,45 +213,18 @@ def parse_configuration(filename):
       #
       # detect macro definitions
       #
-      letline = re.match(r'^ *(let )(.*)$',specline)
-      if letline:
-        name,val = macro_parse(letline.groups()[1])
-        macros[name] = val
+      if LetLine(specline,macros):
         continue
       #
-      # specification lines
+      # key-value lines
       #
-      fields = specline.split()
-      if len(fields)==2:
-        key,value = fields
-        if key=="system":
-          if value!=system:
-            print("This configuration can only be run on <<{}>>".format(value))
-            sys.exit(1)
-          macros[key] = value
-        elif key=="nodes":
-          try :
-            options[key] = [ int(i) for i in value.split(":") ]
-          except:
-            print("Could not parse node specification <<{}>>".format(value))
-            raise
-        else:
-          value = macros_substitute(value,macros)
-          options[key] = value
-        print("setting key={} to value={}".format(key,value))
-      else:
-        key = fields[0]
-        value = [ macros_substitute(f,macros) for f in fields[1:] ]
-        if key=="suite":
-          # we can have more than one suite per configuration,
-          # each uses the currect options
-          print("defining testsuite with options=<<{}>>, configuration=<<{}>>"\
-                .format(value,options))
-          s = TestSuite( value,options )
-          suites.append(s)
-          print("defining suite <<{}>>".format(s))
-        else:
-          options[key] = value
+      if KeyValLine(specline,macros,options,system):
+        continue
+      #
+      # other specification lines
+      #
+      if SpecLine(specline,macros,options,suites):
+        continue
     options["suites"] = suites
     return options
 
