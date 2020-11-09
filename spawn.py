@@ -1,8 +1,5 @@
 #!/usr/bin/env python
 #
-# W. Cyrus Proctor
-# 2015-10-24
-# 2015-10-08
 # Victor Eijkhout
 # 2020-03-09
 
@@ -48,78 +45,6 @@ def read_batch_template(filename):
 def DefaultModules():
   return "intel/18.0.2"
 
-def parse_suite(suite_option_list):
-  suite = { "name" : "unknown", "runner" : "", "dir" : "./", "apps" : [] }
-  for opt in suite_option_list:
-    if re.search(":",opt):
-      key,val = opt.split(":")
-      #print("benchmark suite option {}={}".format(key,val))
-      if key=="type":
-        if  val=="mpi":
-          suite["runner"] = "ibrun "
-      else:
-        suite[key] = val
-    else:
-      #print("benchmark suite app {}".format(opt))
-      if re.search(r'\*',opt):
-        dir = suite["dir"]
-        if not os.path.exists(dir) or not os.path.isdir(dir):
-          raise Exception("No such directory: {}".format(dir))
-        p = sp.Popen( "cd {} ; ls {}".format( dir,opt ),\
-                      stdout=sp.PIPE,shell=True )
-        out,err = p.communicate()
-        for a in out.split():
-          suite["apps"].append(a.decode("utf-8"))
-        print("application wildcards gives apps <<{}>>".format(suite["apps"]))
-      else:
-        suite["apps"].append(opt)
-  return suite
-
-##
-## return nodes and cores as list of equal length
-##
-def nodes_cores_values(configuration):
-  def nodes_cores_from_cores_list(nodes,cores):
-    ## this assumes cores is a list!
-    if not isinstance(nodes,list):
-      nodes = [ nodes for c in cores ]
-    if not len(cores)==len(nodes):
-      print("Core and node lists need to be equal length")
-      raise Exception()
-    return nodes,cores
-  def cores_list_from_nodes(nodes,cores):
-    if isinstance(nodes,list):
-      cores = [ cores for n in nodes ]
-    else:
-      cores = [ cores ]
-    return cores
-  def cores_list_from_ppn(nodes,ppn):
-    if not isinstance(nodes,list):
-      nodes = [ nodes ]
-    cores = [ n*ppn for n in nodes ]
-    return cores
-  nodes = configuration.get("nodes",None)
-  if nodes is None:
-    print("Node specification always needed, regardless cores")
-    raise Exception()
-  cores = configuration.get("cores",None)
-  ppn   = configuration.get("ppn",None)
-  if cores is None and ppn is None:
-    print("Configuration needs to specify `cores' or `ppn'")
-    raise Exception()
-  elif cores is not None:
-    ## cores are specified
-    if not isinstance(cores,list):
-      # cores is scalar, first make list
-      cores = cores_list_from_nodes(nodes,cores)
-    return nodes_cores_from_cores_list(nodes,cores)
-  else:
-    ## ppn specified
-    ppn  = int(ppn)
-    cores = cores_list_from_ppn(nodes,ppn)
-    return nodes_cores_from_cores_list(nodes,cores)
-
-
 def wait_for_jobs( jobs ):
   while True:
     running = []; pending = []
@@ -135,11 +60,12 @@ def wait_for_jobs( jobs ):
       break
     time.sleep(1)
 
-def macro_parse(defspec):
+def macro_parse(defspec,macros={}):
   #print("macro parsing: <<{}>>".format(defspec))
   name,val = defspec.split("=")
   name = name.strip(" *").lstrip(" *")
   val  =  val.strip(" *").lstrip(" *")
+  val = macros_substitute( val,macros )
   print("defining macro <<{}>>=<<{}>>".format(name,val))
   return name,val
 
@@ -150,56 +76,64 @@ def macros_substitute(line,macros):
     if re.search(m_search,line):
       replacement_text = macros[m]
       if m=="modules":
-        replacement_text = '_'.join( [ re.sub('/','-',m) for m in replacement_text ] )
-      print("{} -> {}".format(m,replacement_text))
+        replacement_text = module_string(replacement_text)
       subline = re.sub( m_search, replacement_text, subline )
-      #print("replacing <<{}={}>> in <<{}>> gives <<{}>>".format(m,macros[m],line,subline))
   return subline
 
 run_user = "eijkhout"
+def DefineMacro(name,val,macros):
+  newval = macros_substitute( val,macros )
+  print("define {} to {}->{}".format(name,val,newval))
+  macros[name] = newval
+  return newval
 def LetLine(specline,macros):
   letline = re.match(r'^ *(let )(.*)$',specline)
   if letline:
-    name,val = macro_parse(letline.groups()[1])
-    macros[name] = val
+    print("Let, using macros:",macros)
+    name,val = macro_parse(letline.groups()[1], macros)
+    DefineMacro(name,val,macros)
     return True
   else: return False
 def KeyValLine(specline,macros,options,system):
+    # parse two-field line as macro;
+    # couple of special cases
     fields = specline.split()
-    if len(fields)==2:
-      key,value = fields
-      if key=="system":
-        if value!=system:
-          print("This configuration can only be run on <<{}>>".format(value))
-          sys.exit(1)
-        macros[key] = value
-      elif key=="nodes":
-        try :
-          options[key] = [ int(i) for i in value.split(":") ]
-        except:
-          print("Could not parse node specification <<{}>>".format(value))
-          raise
-      else:
-        value = macros_substitute(value,macros)
-        options[key] = value
-      print("setting key={} to value={}".format(key,value))
-      return True
-    else: return False
+    if len(fields)!=2: return False
+    key,value = fields
+    if key=="system":
+      if value!=system:
+        print("This configuration can only be run on <<{}>>".format(value))
+        sys.exit(1)
+    # define key/value also as macro
+    value = DefineMacro(key,value,macros)
+    print("setting key={} to value={}".format(key,value))
+    # but mostly set options[key] = value
+    if key=="nodes":
+      try :
+        options[key] = [ int(i) for i in value.split(":") ]
+      except:
+        print("Could not parse node specification <<{}>>".format(value))
+        raise
+    else: options[key] = value
+    return True
 def SpecLine(specline,macros,options,suites):
-    fields = specline.split()
-    key = fields[0]
-    value = [ macros_substitute(f,macros) for f in fields[1:] ]
+    # remaining case: multi-option line
+    # (mostly "suite" and "modules")
+    key,fields = specline.split(" ",1)
     if key=="suite":
+      fields = fields.split()
+      values = [ macros_substitute(f,macros) for f in fields[1:] ]
       # we can have more than one suite per configuration,
       # each uses the currect options
       print("defining testsuite with options=<<{}>>, configuration=<<{}>>"\
-            .format(value,options))
-      s = TestSuite( value,options )
+            .format(values,options))
+      s = TestSuite( values,options )
       suites.append(s)
       print("defining suite <<{}>>".format(s))
     else:
-      options[key] = value
-      print("setting key={} to value={}".format(key,value))
+      options[key] = fields
+      print("setting spec: {} to value={}".format(key,fields))
+      DefineMacro(key,fields,macros)
     return True
 def parse_configuration(filename):
   options = {}
@@ -211,17 +145,17 @@ def parse_configuration(filename):
       if re.match("#",specline):
         continue
       #
-      # detect macro definitions
+      # detect macro definitions, starting with "let"
       #
       if LetLine(specline,macros):
         continue
       #
-      # key-value lines
+      # simple key-value lines
       #
       if KeyValLine(specline,macros,options,system):
         continue
       #
-      # other specification lines
+      # other specification lines with 3 or more fields
       #
       if SpecLine(specline,macros,options,suites):
         continue

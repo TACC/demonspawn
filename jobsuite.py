@@ -19,6 +19,15 @@ import time
 def DefaultModules():
   return "intel/18.0.2"
 
+def module_string(txt):
+  # make module list from string
+  txt = txt.split(" ")
+  # slashes -> dashes in each module
+  txt = [ re.sub('/','-',m) for m in txt ]
+  # join modules with underscore for configuration name
+  txt = '_'.join( txt )
+  return txt
+
 class Job():
     def __init__(self,**kwargs):
         #default values to be overwritten later
@@ -68,7 +77,7 @@ class Job():
                       re.sub("/","",
                              re.sub(".*/","",self.benchmark) \
                              +"-"+ \
-                             self.modules \
+                             module_string(self.modules) \
                              +"-N"+str(self.nodes)+"-n"+str(self.cores) \
                          ) \
                   )
@@ -316,14 +325,12 @@ class TestSuite():
     self.name = configuration.pop("name","testsuite")
     self.configuration = configuration
     self.testing = self.configuration.get("testing",False)
-    self.modules = self.configuration.get( "modules",[ "intel" ] )
+    self.modules = self.configuration.get( "modules","intel" )
+
     self.nodes,self.cores = nodes_cores_values(self.configuration)
     suite_spec_list = suite
     suite_spec_list.append( "nodes:"+str(self.nodes) )
     self.suites = [ parse_suite( suite_spec_list ) ]
-    if not isinstance(self.modules,list):
-      print("Modules should be a list, not <<{}>>".format(self.modules))
-      raise Exception()
     # scripts
     dirname = "scriptdir"
     dirpath = self.configuration.get(dirname,os.getcwd()+"/dir."+dirname)
