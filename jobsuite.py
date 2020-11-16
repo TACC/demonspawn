@@ -170,7 +170,7 @@ def parse_suite(suite_option_list):
       if re.search(r'\*',opt):
         dir = suite["dir"]
         if not os.path.exists(dir) or not os.path.isdir(dir):
-          raise Exception("No such directory: {}".format(dir))
+          raise Exception("No such directory: <<{}>>".format(dir))
         p = sp.Popen( "cd {} ; ls {}".format( dir,opt ),\
                       stdout=sp.PIPE,shell=True )
         out,err = p.communicate()

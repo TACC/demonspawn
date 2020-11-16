@@ -142,6 +142,7 @@ def parse_configuration(filename):
   macros = { "system":system }
   with open(filename,"r") as configuration:
     for specline in configuration:
+      specline = specline.strip()
       if re.match("#",specline):
         continue
       #
