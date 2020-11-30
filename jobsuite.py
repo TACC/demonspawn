@@ -358,15 +358,19 @@ class TestSuite():
   def __str__(self):
     description = """
 ################################################################
-{}: {}
+Test suite: {}
+modules: {}
+nodes/cores: {}/{}
+suites: {}
 ################################################################
-""".format("modules",self.modules)
+""".format(self.name,self.modules,self.nodes,self.cores,self.suites)
     return description
   def run(self,testing=False):
-      logfilename = self.outputdir+"/log.txt"
+      starttime = datetime.date.today()
+      logfilename = self.outputdir+"/log-%s.txt" % starttime
       with open(logfilename,"a") as logfile:
-          logfile.write("Test suite <<{}>> run at <<{}>>\n".\
-                        format(self.name,datetime.date.today()))
+          logfile.write(str(self))
+          logfile.write("run at {}".format(starttime))
           count = 1
           jobs = []; jobids = []
           queues = Queues(testing) ## should probaby be global
