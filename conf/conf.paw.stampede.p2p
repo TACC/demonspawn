@@ -3,8 +3,10 @@ user eijkhout
 modules intel/18.0.2 impi/18.0.2
 account A-ccsc
 queue normal
-scriptdir /work/00434/eijkhout/demonspawn/paw.scripts.stampede2
-outputdir /work/00434/eijkhout/demonspawn/paw.output.stampede2
+let rootdir = /work/00434/eijkhout/demonspawn
+let pawdir  = /work/00434/eijkhout/paw/installation_git_%[system]_%[modules]
+scriptdir %[rootdir]/paw.scripts.stampede2
+outputdir %[rootdir]/paw.output.stampede2
 nodes 2
 ppn 2
-suite name:paw-mpi-p2p type:mpi dir:/work/00434/eijkhout/paw/installation-stampede2 p2p_*
+suite name:paw-mpi-p2p type:mpi dir:%[pawdir] p2p_*

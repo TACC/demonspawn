@@ -19,22 +19,6 @@ import time
 # Local
 from jobsuite import *
 
-# import benchmark_list        as bl
-# import module_list           as ml
-# import spawn_real_time_child as srtc
-# import dateortime            as dtime
-# import starter               as st
-
-
-#--------------------------------------------------------------------------------
-# Globals
-sl       = "/"
-sentinel = object()
-
-#--------------------------------------------------------------------------------
-#--------------------------------------------------------------------------------
-#--------------------------------------------------------------------------------
-
 def read_batch_template(filename):
   """
      Read in Slurm batch submit template and return as a string.
@@ -121,8 +105,8 @@ def SpecLine(specline,macros,options,suites):
     # (mostly "suite" and "modules")
     key,fields = specline.split(" ",1)
     if key=="suite":
-      fields = fields.split()
-      values = [ macros_substitute(f,macros) for f in fields[1:] ]
+      fields = fields.split(" ")
+      values = [ macros_substitute(f,macros) for f in fields ]
       # we can have more than one suite per configuration,
       # each uses the currect options
       print("defining testsuite with options=<<{}>>, configuration=<<{}>>"\
@@ -131,6 +115,8 @@ def SpecLine(specline,macros,options,suites):
       suites.append(s)
       print("defining suite <<{}>>".format(s))
     else:
+      fields = re.sub(" ","_",re.sub("/","-",fields))
+      fields = macros_substitute(fields,macros)
       options[key] = fields
       print("setting spec: {} to value={}".format(key,fields))
       DefineMacro(key,fields,macros)

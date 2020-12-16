@@ -32,7 +32,8 @@ class Job():
     def __init__(self,**kwargs):
         #default values to be overwritten later
         self.suite = "paw"
-        self.modules = DefaultModules()
+        #self.modules = DefaultModules()
+        #print(f"Creating job with modules {self.modules}")
         self.queue = "normal"
         self.nodes = 10
         self.cores = 20
@@ -45,20 +46,22 @@ class Job():
         self.logfile = None # this is the global log
         self.set_has_not_been_submitted()
 
-        tracestring = "Creating job with"
+        tracestring = ""
         for key,val in kwargs.items():
-            if key=="modules":
-                val = " ".join(val)
+            # if key=="modules":
+            #     val = " ".join(val)
             tracestring += " {}={}".format(key,val)
             self.__dict__[key] = val
+        tracestring = f"Creating job <<{self.name()}>> with" + tracestring
 
         self.CheckValidDir("scriptdir")
         self.CheckValidDir("outputdir")
         self.output_file_name = self.outputdir+"/"+self.name()+".out%j"
+        self.script_name = self.scriptdir+"/"+self.name()
+        tracestring += f" in file <<{self.script_name}>>"
 
         if self.trace:
             print(tracestring)
-        self.script_name = self.scriptdir+"/"+self.name()
     def generate_script(self):
         script_content = str(self)
         with open( self.script_name,"w" ) as batch_file:
@@ -326,6 +329,7 @@ class TestSuite():
     self.configuration = configuration
     self.testing = self.configuration.get("testing",False)
     self.modules = self.configuration.get( "modules","intel" )
+    print(f"Test suite with modules {self.modules}")
 
     self.nodes,self.cores = nodes_cores_values(self.configuration)
     suite_spec_list = suite
@@ -370,7 +374,7 @@ suites: {}
       logfilename = self.outputdir+"/log-%s.txt" % starttime
       with open(logfilename,"a") as logfile:
           logfile.write(str(self))
-          logfile.write("run at {}".format(starttime))
+          logfile.write("Test suite run at {}".format(starttime))
           count = 1
           jobs = []; jobids = []
           queues = Queues(testing) ## should probaby be global
@@ -378,10 +382,11 @@ suites: {}
           queues.add_queue("normal",10)
           for suite in self.suites:
               for benchmark in suite["apps"]:
+                  suitename = suite["name"]
                   print("="*80)
                   print("JOB: {0}".format(count))
                   print("="*80)
-                  print("submitting",suite["name"], benchmark)
+                  print(f"submitting suite={suitename} benchmark={benchmark} at {datetime.datetime.now()}")
                   for nnodes,ncores in zip( self.nodes,self.cores ):
                     print(".. on %d nodes" % nnodes)
                     job = Job(scriptdir=self.scriptdir,outputdir=self.outputdir,
@@ -397,8 +402,8 @@ suites: {}
 
                     logfile.write(f"""
 %%%%%%%%%%%%%%%%
-{count:3}: {script_file_name}
-     {output_file_name}
+{count:3}: script={script_file_name}
+     logout={output_file_name}
 """)
                     queues.enqueue(job)
                     count += 1
