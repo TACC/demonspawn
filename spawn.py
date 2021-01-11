@@ -115,10 +115,10 @@ def SpecLine(specline,macros,options,suites):
       suites.append(s)
       print("defining suite <<{}>>".format(s))
     else:
-      fields = re.sub(" ","_",re.sub("/","-",fields))
+      #fields = re.sub(" ","_",re.sub("/","-",fields))
       fields = macros_substitute(fields,macros)
       options[key] = fields
-      print("setting spec: {} to value={}".format(key,fields))
+      print("setting spec: {} to value=<<{}>>".format(key,fields))
       DefineMacro(key,fields,macros)
     return True
 def parse_configuration(filename):

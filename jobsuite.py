@@ -32,8 +32,6 @@ class Job():
     def __init__(self,**kwargs):
         #default values to be overwritten later
         self.suite = "paw"
-        #self.modules = DefaultModules()
-        #print(f"Creating job with modules {self.modules}")
         self.queue = "normal"
         self.nodes = 10
         self.cores = 20
@@ -48,8 +46,6 @@ class Job():
 
         tracestring = ""
         for key,val in kwargs.items():
-            # if key=="modules":
-            #     val = " ".join(val)
             tracestring += " {}={}".format(key,val)
             self.__dict__[key] = val
         tracestring = f"Creating job <<{self.name()}>> with" + tracestring
