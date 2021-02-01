@@ -125,11 +125,11 @@ def parse_configuration(filename):
   options = {}
   suites = []
   system = os.environ["TACC_SYSTEM"]
-  macros = { "system":system }
+  macros = { "system":system,"date":str( datetime.date.today() ) }
   with open(filename,"r") as configuration:
     for specline in configuration:
       specline = specline.strip()
-      if re.match("#",specline):
+      if re.match("#",specline) or re.match(r'^[ \t]*$',specline):
         continue
       #
       # detect macro definitions, starting with "let"
@@ -174,9 +174,10 @@ if __name__ == "__main__":
   args = sys.argv[1:]
   configuration = {}
   testing = False                      
+  debug = False
   while len(args)>0:
     if args[0]=="-h":
-      print("Usage: python3 batch.py [ -h ] [ --test ] [ -c configuration ]")
+      print("Usage: python3 batch.py [ -h ] [ -d --debug ] [ -t --test ] [ -c configuration ]")
       sys.exit(0)
     elif args[0]=="-c":
       args = args[1:]
@@ -185,9 +186,12 @@ if __name__ == "__main__":
         sys.exit(1)
       configuration_file = args[0]
       configuration = parse_configuration(configuration_file)
-    elif args[0]=="--test":
+    elif args[0] in [ "-t", "--test" ]:
       testing = True
+    elif args[0] in [ "-d", "--debug" ]:
+      debug = True
     args = args[1:]
+  configuration["debug"] = debug
   configuration["testing"] = testing
   print("returned configuration: {}".format(configuration))
   print_configuration(configuration)

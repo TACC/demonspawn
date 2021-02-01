@@ -42,6 +42,7 @@ class Job():
         self.benchmark = "echo foo"
         self.trace = False
         self.logfile = None # this is the global log
+        self.regressionfile = None
         self.set_has_not_been_submitted()
 
         tracestring = ""
@@ -50,6 +51,10 @@ class Job():
             self.__dict__[key] = val
         tracestring = f"Creating job <<{self.name()}>> with" + tracestring
 
+        if not self.logfile: 
+            print("Trying to create job without logfile"); sys.exit(1)
+        if self.regression and not self.regressionfile:
+            print("Trying to create regression job without regressionfile"); sys.exit(1)
         self.CheckValidDir("scriptdir")
         self.CheckValidDir("outputdir")
         self.output_file_name = self.outputdir+"/"+self.name()+".out%j"
@@ -58,8 +63,32 @@ class Job():
 
         if self.trace:
             print(tracestring)
+        if self.logfile:
+            self.logfile.write(tracestring+"\n")
     def generate_script(self):
-        script_content = str(self)
+        script_content =  \
+"""#!/bin/bash
+#SBATCH -J {}
+#SBATCH -o {}
+#SBATCH -e {}
+#SBATCH -p {}
+#SBATCH -t {}
+#SBATCH -N {}
+#SBATCH -n {}
+#SBATCH -A {}
+
+module reset
+module load {}
+
+cd {}
+{}
+""".format(self.name(),
+           self.output_file_name,self.output_file_name,
+           self.queue,self.runtime,self.nodes,self.cores,
+           self.account,self.modules,
+           self.outputdir,
+           self.runner+self.dir+"/"+self.benchmark,
+         )
         with open( self.script_name,"w" ) as batch_file:
             batch_file.write(script_content)
         if self.trace:
@@ -80,6 +109,8 @@ class Job():
                              +"-N"+str(self.nodes)+"-n"+str(self.cores) \
                          ) \
                   )
+    def __str__(self):
+        return f"{self.benchmark} N={self.nodes} n={self.cores} regression={self.regression}"
     def submit(self,logfile=None):
         p = sp.Popen(["sbatch",self.script_name],stdout=sp.PIPE)
         submitted = False
@@ -104,6 +135,11 @@ class Job():
         return self.status!="PRE"
     def set_has_been_submitted(self,id):
         self.status = "PD"; self.jobid = id
+        self.logfile.write("Status to pending, id={id}")
+        if re.search("%j",self.output_file_name):
+            self.output_file_name = re.sub("%j",self.jobid,self.output_file_name)
+            self.logfile.write(", output file name set to {self.output_file_name}")
+        self.logfile.write("\n")
     def status_update(self,status):
         if status!="NS":
             # job was found in slurm, status is PD or R or CG
@@ -112,11 +148,15 @@ class Job():
             # job not found in slurm: either not scheduled, or already finished
             if self.jobid!="1":
                 # it has an actual id
-                self.status = "POST" # done running
-            
-    def get_is_running(self):
+                if self.status!="POST":
+                  self.status = "POST" # done running
+                  if self.logfile:
+                    self.logfile.write(f"Doing regression <<{self.regression}>> on job {self.name()}\n")
+                    self.do_regression()
+                    self.logfile.write(f".. done regression\n")
+    def is_running(self):
         return self.jobid!="1" and self.status=="R"
-    def get_is_pending(self):
+    def is_pending(self):
         return self.jobid!="1" and self.status=="PD"
     def get_done_running(self):
         return self.status=="POST"
@@ -128,31 +168,23 @@ class Job():
         for status in io.TextIOWrapper(p.stdout, encoding="utf-8"):
             status = status.strip()
         return status
-    def __str__(self):
-      return \
-"""#!/bin/bash
-#SBATCH -J {}
-#SBATCH -o {}
-#SBATCH -e {}
-#SBATCH -p {}
-#SBATCH -t {}
-#SBATCH -N {}
-#SBATCH -n {}
-#SBATCH -A {}
-
-module reset
-module load {}
-
-cd {}
-{}
-""".format(self.name(),
-           self.output_file_name,self.output_file_name,
-           self.queue,self.runtime,self.nodes,self.cores,
-           self.account,self.modules,
-           self.outputdir,
-           self.runner+self.dir+"/"+self.benchmark,
-         )
-
+    def do_regression(self):
+        print(f"Doing regression on {self.output_file_name}")
+        rtest = {}
+        for kv in self.regression.split():
+            if not re.search(":",kv):
+                print(f"ill-formed regression clause <<{kv}>>")
+                continue
+            k,v = kv.split(":")
+            rtest[k] = v
+        v = rtest["grep"]
+        with open(self.output_file_name,"r") as output_file:
+          for line in output_file:
+            line = line.strip()
+            if re.search(v,line):
+              print(line)
+              self.logfile.write(line+"\n")
+              self.regressionfile.write(self.name()+":"+line+"\n")
 def parse_suite(suite_option_list):
   suite = { "name" : "unknown", "runner" : "", "dir" : "./", "apps" : [] }
   for opt in suite_option_list:
@@ -251,8 +283,8 @@ class Queue():
                 j.status_update(status_dict[j.jobid])
             else:
                 j.status_update("NS") # not found in slurm
-        nrunning = sum( [ 1 for j in self.jobs if j.get_is_running() ] ) \
-                   + sum( [ 1 for j in self.jobs if j.get_is_pending() ] )
+        nrunning = sum( [ 1 for j in self.jobs if j.is_running() ] ) \
+                   + sum( [ 1 for j in self.jobs if j.is_pending() ] )
         nslots = self.limit-nrunning
         print(f"Queue {self.name} has #in queue={nrunning}, space for: {nslots}")
         for j in self.jobs:
@@ -325,6 +357,7 @@ class TestSuite():
     self.configuration = configuration
     self.testing = self.configuration.get("testing",False)
     self.modules = self.configuration.get( "modules","intel" )
+    self.regression = self.configuration.get("regression",False)
     print(f"Test suite with modules {self.modules}")
 
     self.nodes,self.cores = nodes_cores_values(self.configuration)
@@ -356,54 +389,59 @@ class TestSuite():
       print("already exists {}: {}",dirname,dirpath)
       pass
   def __str__(self):
-    description = """
+    description = f"""
 ################################################################
-Test suite: {}
-modules: {}
-nodes/cores: {}/{}
-suites: {}
+Test suite: {self.name}
+modules: {self.modules}
+nodes/cores: {self.nodes}/{self.cores}
+regression: {self.regression}
+suites: {self.suites}
 ################################################################
-""".format(self.name,self.modules,self.nodes,self.cores,self.suites)
+""" ###.format(self.name,self.modules,self.nodes,self.cores,self.suites)
     return description
   def run(self,testing=False):
       starttime = datetime.date.today()
       logfilename = self.outputdir+"/log-%s.txt" % starttime
-      with open(logfilename,"a") as logfile:
-          logfile.write(str(self))
-          logfile.write("Test suite run at {}".format(starttime))
-          count = 1
-          jobs = []; jobids = []
-          queues = Queues(testing) ## should probaby be global
-          queues.add_queue("development",1)
-          queues.add_queue("normal",10)
-          for suite in self.suites:
-              for benchmark in suite["apps"]:
-                  suitename = suite["name"]
-                  print("="*80)
-                  print("JOB: {0}".format(count))
-                  print("="*80)
-                  print(f"submitting suite={suitename} benchmark={benchmark} at {datetime.datetime.now()}")
-                  for nnodes,ncores in zip( self.nodes,self.cores ):
-                    print(".. on %d nodes" % nnodes)
-                    job = Job(scriptdir=self.scriptdir,outputdir=self.outputdir,
-                              nodes=nnodes,cores=ncores,queue=self.configuration["queue"],
-                              dir=suite["dir"],
-                              benchmark=benchmark,modules=self.modules,
-                              runner=suite["runner"],
-                              account=self.configuration["account"],user=self.configuration["user"],
-                              logfile=logfile,
-                              trace=True)
-                    script_file_name = job.generate_script()
-                    output_file_name = job.output_file_name
+      logfile = open(logfilename,"a")
+      logfile.write(str(self))
+      logfile.write("Test suite run at {}".format(starttime))
+      if self.regression:
+          regressionfilename = self.outputdir+"/regression-%s.txt" % starttime
+          regressionfile = open(regressionfilename,"a")
+      count = 1
+      jobs = []; jobids = []
+      queues = Queues(testing) ## should probaby be global
+      queues.add_queue("development",1)
+      queues.add_queue("normal",10)
+      for suite in self.suites:
+          for benchmark in suite["apps"]:
+              suitename = suite["name"]
+              print("="*16,f"{count}: submitting suite={suitename} benchmark={benchmark} at {datetime.datetime.now()}")
+              for nnodes,ncores in zip( self.nodes,self.cores ):
+                print(".. on %d nodes" % nnodes)
+                job = Job(scriptdir=self.scriptdir,outputdir=self.outputdir,
+                          nodes=nnodes,cores=ncores,
+                          queue=self.configuration["queue"],
+                          dir=suite["dir"],
+                          benchmark=benchmark,modules=self.modules,
+                          regression=self.regression,regressionfile=regressionfile,
+                          runner=suite["runner"],
+                          account=self.configuration["account"],user=self.configuration["user"],
+                          logfile=logfile,
+                          trace=True)
+                script_file_name = job.generate_script()
+                output_file_name = job.output_file_name
 
-                    logfile.write(f"""
+                logfile.write(f"""
 %%%%%%%%%%%%%%%%
 {count:3}: script={script_file_name}
-     logout={output_file_name}
+ logout={output_file_name}
 """)
-                    queues.enqueue(job)
-                    count += 1
-          print(f"See log file: {logfilename}")
-          queues.wait_for_jobs()
-          print(f"See log file: {logfilename}")
+                queues.enqueue(job)
+                count += 1
+      print(f"See log file: {logfilename}")
+      queues.wait_for_jobs()
+      print(f"See log file: {logfilename}")
+      if self.regression:
+          print(f"See regression file: {regressionfilename}")
 
