@@ -12,14 +12,14 @@ queue normal
 scriptdir /work/00434/eijkhout/demonspawn/paw.scripts
 outputdir /work/00434/eijkhout/demonspawn/paw.output
 nodes 2
-suite name:paw-mpi-p2p type:mpi dir:/work/00434/eijkhout/paw/installation-frontera p2p_*
+suite name:paw-mpi-p2p type:mpi dir:/work/00434/eijkhout/mpi-regression/paw/installation-frontera p2p_*
 nodes 2:5:10:42
-suite name:paw-mpi-col type:mpi dir:/work/00434/eijkhout/paw/installation-frontera col_*
+suite name:paw-mpi-col type:mpi dir:/work/00434/eijkhout/mpi-regression/paw/installation-frontera col_*
 #
 queue daos
 scriptdir /work/00434/eijkhout/demonspawn/paw.scripts-daos
 outputdir /work/00434/eijkhout/demonspawn/paw.output-daos
 nodes 2
-suite name:paw-daos-p2p type:mpi dir:/work/00434/eijkhout/paw/installation-frontera-daos p2p_*
+suite name:paw-daos-p2p type:mpi dir:/work/00434/eijkhout/mpi-regression/paw/installation-frontera-daos p2p_*
 nodes 2:5:10:42
-suite name:paw-mpi-col type:mpi dir:/work/00434/eijkhout/paw/installation-frontera-daos col_*
+suite name:paw-mpi-col type:mpi dir:/work/00434/eijkhout/mpi-regression/paw/installation-frontera-daos col_*

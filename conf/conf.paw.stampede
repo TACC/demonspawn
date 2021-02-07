@@ -7,7 +7,7 @@ scriptdir /work/00434/eijkhout/demonspawn/paw.scripts.stampede2
 outputdir /work/00434/eijkhout/demonspawn/paw.output.stampede2
 nodes 2
 ppn 2
-suite name:paw-mpi-p2p type:mpi dir:/work/00434/eijkhout/paw/installation-stampede2 p2p_*
+suite name:paw-mpi-p2p type:mpi dir:/work/00434/eijkhout/mpi-regression/paw/installation-stampede2 p2p_*
 nodes 2:5:10:50
 ppn 42
-suite name:paw-mpi-col type:mpi dir:/work/00434/eijkhout/paw/installation-stampede2 col_*
+suite name:paw-mpi-col type:mpi dir:/work/00434/eijkhout/mpi-regression/paw/installation-stampede2 col_*

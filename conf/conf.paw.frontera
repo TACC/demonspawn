@@ -7,7 +7,7 @@ scriptdir /work/00434/eijkhout/demonspawn/paw.scripts
 outputdir /work/00434/eijkhout/demonspawn/paw.output
 nodes 2
 ppn 1
-suite name:paw-mpi-p2p type:mpi dir:/work/00434/eijkhout/paw/installation-frontera p2p_*
+suite name:paw-mpi-p2p type:mpi dir:/work/00434/eijkhout/mpi-regression/paw/installation-frontera p2p_*
 ppn 56
 nodes 2:5:10:50:200
-suite name:paw-mpi-col type:mpi dir:/work/00434/eijkhout/paw/installation-frontera col_*
+suite name:paw-mpi-col type:mpi dir:/work/00434/eijkhout/mpi-regression/paw/installation-frontera col_*

@@ -32,5 +32,5 @@ regression grep:Maximum field:4 take:avg
 #
 # benchmark to run
 #
-let pawdir  = /work/00434/eijkhout/paw/installation_git_%[system]_%[modules]
+let pawdir  = /work/00434/eijkhout/mpi-regression/paw/installation_git_%[system]_%[modules]
 suite name:paw-mpi-p2p type:mpi dir:%[pawdir] p2p_*
