@@ -152,8 +152,9 @@ cd {}
                   self.status = "POST" # done running
                   if self.logfile:
                     self.logfile.write(f"Doing regression <<{self.regression}>> on job {self.name()}\n")
+                  if self.regression:
                     self.do_regression()
-                    self.logfile.write(f".. done regression\n")
+                    if self.logfile: self.logfile.write(f".. done regression\n")
     def is_running(self):
         return self.jobid!="1" and self.status=="R"
     def is_pending(self):
@@ -408,11 +409,13 @@ suites: {self.suites}
       if self.regression:
           regressionfilename = self.outputdir+"/regression-%s.txt" % starttime
           regressionfile = open(regressionfilename,"a")
+      else: regressionfile = None
       count = 1
       jobs = []; jobids = []
       queues = Queues(testing) ## should probaby be global
       queues.add_queue("development",1)
       queues.add_queue("normal",10)
+      queues.add_queue("rtx",4)
       for suite in self.suites:
           for benchmark in suite["apps"]:
               suitename = suite["name"]

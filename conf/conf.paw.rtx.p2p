@@ -1,0 +1,36 @@
+##
+## Demonspawn configuration 
+## for running the Carlos Rosales PAW suite
+##
+
+#
+# some global setup
+#
+system frontera
+user eijkhout
+modules intel/19.1.1 impi/19.0.7
+account A-ccsc
+queue rtx
+
+#
+#  describe this run
+#
+let rootdir = /work/00434/eijkhout/demonspawn
+# slurm scripts
+scriptdir %[rootdir]/paw.scripts.%[system]-rtx.%[date]
+# all output
+outputdir %[rootdir]/paw.output.%[system]-rtx.%[date]
+# number of nodes
+nodes 2
+# processes per node
+ppn 1
+# verbose output
+trace 1
+# data for regression
+regression grep:Maximum field:4 take:avg
+
+#
+# benchmark to run
+#
+let pawdir  = /work/00434/eijkhout/mpi-regression/paw/installation_git_%[system]_%[modules]
+suite name:paw-mpi-p2p type:mpi dir:%[pawdir] p2p_*
