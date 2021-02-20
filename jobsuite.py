@@ -33,8 +33,7 @@ class Job():
         #default values to be overwritten later
         self.suite = "paw"
         self.queue = "normal"
-        self.nodes = 10
-        self.cores = 20
+        self.nodes_cores = 1,10
         self.runtime = "00:05:00"
         self.user = "nosuchuser"
         self.account = "MyAccount"
@@ -51,13 +50,15 @@ class Job():
             self.__dict__[key] = val
         tracestring = f"Creating job <<{self.name()}>> with" + tracestring
 
+        self.nodes,self.ppn = self.nodes_cores
         if not self.logfile: 
             print("Trying to create job without logfile"); sys.exit(1)
         if self.regression and not self.regressionfile:
             print("Trying to create regression job without regressionfile"); sys.exit(1)
         self.CheckValidDir("scriptdir")
         self.CheckValidDir("outputdir")
-        self.output_file_name = self.outputdir+"/"+self.name()+".out%j"
+        self.output_file_name = self.outputdir+"/"+self.name()+".spawnout"
+        self.slurm_output_file_name = self.outputdir+"/"+self.name()+".out%j"
         self.script_name = self.scriptdir+"/"+self.name()
         tracestring += f" in file <<{self.script_name}>>"
 
@@ -66,29 +67,24 @@ class Job():
         if self.logfile:
             self.logfile.write(tracestring+"\n")
     def generate_script(self):
+        bench_program = self.runner+self.dir+"/"+self.benchmark
         script_content =  \
-"""#!/bin/bash
-#SBATCH -J {}
-#SBATCH -o {}
-#SBATCH -e {}
-#SBATCH -p {}
-#SBATCH -t {}
-#SBATCH -N {}
-#SBATCH -n {}
-#SBATCH -A {}
+f"""#!/bin/bash
+#SBATCH -J {self.name}
+#SBATCH -o {self.slurm_output_file_name}
+#SBATCH -e {self.slurm_output_file_name}
+#SBATCH -p {self.queue}
+#SBATCH -t {self.runtime}
+#SBATCH -N {self.nodes}
+#SBATCH --tasks-per-node {self.ppn}
+#SBATCH -A {self.account}
 
 module reset
-module load {}
+module load {self.modules}
 
-cd {}
-{}
-""".format(self.name(),
-           self.output_file_name,self.output_file_name,
-           self.queue,self.runtime,self.nodes,self.cores,
-           self.account,self.modules,
-           self.outputdir,
-           self.runner+self.dir+"/"+self.benchmark,
-         )
+cd {self.outputdir}
+{bench_program} | tee {self.output_file_name}
+"""
         with open( self.script_name,"w" ) as batch_file:
             batch_file.write(script_content)
         if self.trace:
@@ -106,11 +102,11 @@ cd {}
                              re.sub(".*/","",self.benchmark) \
                              +"-"+ \
                              module_string(self.modules) \
-                             +"-N"+str(self.nodes)+"-n"+str(self.cores) \
+                             +"-N"+str(self.nodes)+"-n"+str(self.ppn) \
                          ) \
                   )
     def __str__(self):
-        return f"{self.benchmark} N={self.nodes} n={self.cores} regression={self.regression}"
+        return f"{self.benchmark} N={self.nodes} ppn={self.cores} regression={self.regression}"
     def submit(self,logfile=None):
         p = sp.Popen(["sbatch",self.script_name],stdout=sp.PIPE)
         submitted = False
@@ -136,8 +132,8 @@ cd {}
     def set_has_been_submitted(self,id):
         self.status = "PD"; self.jobid = id
         self.logfile.write("Status to pending, id={id}")
-        if re.search("%j",self.output_file_name):
-            self.output_file_name = re.sub("%j",self.jobid,self.output_file_name)
+        if re.search("%j",self.slurm_output_file_name):
+            self.slurm_output_file_name = re.sub("%j",self.jobid,self.slurm_output_file_name)
             self.logfile.write(", output file name set to {self.output_file_name}")
         self.logfile.write("\n")
     def status_update(self,status):
@@ -217,45 +213,26 @@ def parse_suite(suite_option_list):
 ## return nodes and cores as list of equal length
 ##
 def nodes_cores_values(configuration):
-  def nodes_cores_from_cores_list(nodes,cores):
-    ## this assumes cores is a list!
-    if not isinstance(nodes,list):
-      nodes = [ nodes for c in cores ]
-    if not len(cores)==len(nodes):
-      print("Core and node lists need to be equal length")
-      raise Exception()
-    return nodes,cores
-  def cores_list_from_nodes(nodes,cores):
-    if isinstance(nodes,list):
-      cores = [ cores for n in nodes ]
-    else:
-      cores = [ cores ]
-    return cores
-  def cores_list_from_ppn(nodes,ppn):
-    if not isinstance(nodes,list):
-      nodes = [ nodes ]
-    cores = [ n*ppn for n in nodes ]
-    return cores
   nodes = configuration.get("nodes",None)
   if nodes is None:
-    print("Node specification always needed, regardless cores")
-    raise Exception()
+    print("Node specification always needed"); raise Exception()
   cores = configuration.get("cores",None)
+  if not cores is None:
+    print("Cores keyword not supported"); raise Exception()
   ppn   = configuration.get("ppn",None)
+  if ppn is None:
+    print("ppn specification always needed"); raise Exception()
   if cores is None and ppn is None:
     print("Configuration needs to specify `cores' or `ppn'")
     raise Exception()
-  elif cores is not None:
-    ## cores are specified
-    if not isinstance(cores,list):
-      # cores is scalar, first make list
-      cores = cores_list_from_nodes(nodes,cores)
-    return nodes_cores_from_cores_list(nodes,cores)
-  else:
-    ## ppn specified
-    ppn  = int(ppn)
-    cores = cores_list_from_ppn(nodes,ppn)
-    return nodes_cores_from_cores_list(nodes,cores)
+  if not isinstance(nodes,list):
+    nodes = [ nodes ]
+  if not isinstance(ppn,list):
+    ppn = [ ppn ]
+  nodes_cores = [ [ [n,p] for n in nodes ] for p in ppn ]
+  nodes_cores = [ np for sub in nodes_cores for np in sub ] 
+  print("nodes_cores:",nodes_cores)
+  return nodes_cores
 
 def running_jobids(qname,user):
     ids = []
@@ -361,10 +338,8 @@ class TestSuite():
     self.regression = self.configuration.get("regression",False)
     print(f"Test suite with modules {self.modules}")
 
-    self.nodes,self.cores = nodes_cores_values(self.configuration)
-    suite_spec_list = suite
-    suite_spec_list.append( "nodes:"+str(self.nodes) )
-    self.suites = [ parse_suite( suite_spec_list ) ]
+    self.nodes_cores = nodes_cores_values(self.configuration)
+    self.suites = [ parse_suite( suite ) ]
     # scripts
     dirname = "scriptdir"
     dirpath = self.configuration.get(dirname,os.getcwd()+"/dir."+dirname)
@@ -394,11 +369,11 @@ class TestSuite():
 ################################################################
 Test suite: {self.name}
 modules: {self.modules}
-nodes/cores: {self.nodes}/{self.cores}
+nodes/cores: {self.nodes_cores}
 regression: {self.regression}
 suites: {self.suites}
 ################################################################
-""" ###.format(self.name,self.modules,self.nodes,self.cores,self.suites)
+""" 
     return description
   def run(self,testing=False):
       starttime = datetime.date.today()
@@ -420,10 +395,10 @@ suites: {self.suites}
           for benchmark in suite["apps"]:
               suitename = suite["name"]
               print("="*16,f"{count}: submitting suite={suitename} benchmark={benchmark} at {datetime.datetime.now()}")
-              for nnodes,ncores in zip( self.nodes,self.cores ):
+              for nnodes,ppn in self.nodes_cores:
                 print(".. on %d nodes" % nnodes)
                 job = Job(scriptdir=self.scriptdir,outputdir=self.outputdir,
-                          nodes=nnodes,cores=ncores,
+                          nodes=nnodes,ppn=ppn,
                           queue=self.configuration["queue"],
                           dir=suite["dir"],
                           benchmark=benchmark,modules=self.modules,

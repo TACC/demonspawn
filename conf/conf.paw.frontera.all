@@ -20,10 +20,6 @@ let rootdir = /work/00434/eijkhout/demonspawn
 scriptdir %[rootdir]/paw.scripts.%[system].%[date]
 # all output
 outputdir %[rootdir]/paw.output.%[system].%[date]
-# number of nodes
-nodes 2
-# processes per node
-ppn 1
 # verbose output
 trace 1
 # data for regression
@@ -33,11 +29,17 @@ regression grep:Maximum field:4 take:avg
 # p2p benchmark
 #
 let pawdir  = /work/00434/eijkhout/mpi-regression/paw/installation_git_%[system]_%[modules]
+# number of nodes
+nodes 2
+# processes per node
+ppn 1
 suite name:paw-mpi-p2p type:mpi dir:%[pawdir] p2p_*
 
 #
 # collective benchmark
 #
+# number of nodes
 nodes 2:5:10:50:200
-ppn 20
+# processes per node
+ppn 2:20:48
 suite name:paw-mpi-col type:mpi dir:%[pawdir] col_*

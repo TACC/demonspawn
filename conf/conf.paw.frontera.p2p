@@ -10,7 +10,7 @@ system frontera
 user eijkhout
 modules intel/19.1.1 impi/19.0.7
 account A-ccsc
-queue normal
+queue development
 
 #
 #  describe this run

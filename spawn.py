@@ -98,6 +98,12 @@ def KeyValLine(specline,macros,options,system):
       except:
         print("Could not parse node specification <<{}>>".format(value))
         raise
+    elif key=="ppn":
+      try :
+        options[key] = [ int(i) for i in value.split(":") ]
+      except:
+        print("Could not parse ppn specification <<{}>>".format(value))
+        raise
     else: options[key] = value
     return True
 def SpecLine(specline,macros,options,suites):
