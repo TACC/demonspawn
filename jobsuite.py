@@ -70,7 +70,7 @@ class Job():
         bench_program = self.runner+self.dir+"/"+self.benchmark
         script_content =  \
 f"""#!/bin/bash
-#SBATCH -J {self.name}
+#SBATCH -J {self.name()}
 #SBATCH -o {self.slurm_output_file_name}
 #SBATCH -e {self.slurm_output_file_name}
 #SBATCH -p {self.queue}
@@ -131,10 +131,10 @@ cd {self.outputdir}
         return self.status!="PRE"
     def set_has_been_submitted(self,id):
         self.status = "PD"; self.jobid = id
-        self.logfile.write("Status to pending, id={id}")
+        self.logfile.write(f"Status to pending, id={id}")
         if re.search("%j",self.slurm_output_file_name):
             self.slurm_output_file_name = re.sub("%j",self.jobid,self.slurm_output_file_name)
-            self.logfile.write(", output file name set to {self.output_file_name}")
+            self.logfile.write(f", output file name set to {self.output_file_name}")
         self.logfile.write("\n")
     def status_update(self,status):
         if status!="NS":
@@ -276,8 +276,10 @@ class Queue():
         return [ j.jobid for j in self.jobs if j.jobid!="1" ]
 
 class Queues():
-    def __init__(self,testing=False):
-        self.queues = {}; self.testing = testing
+    def __init__(self,**kwargs):
+        self.queues = {}
+        self.testing = kwargs.get("testing",False)
+        self.logprinter = kwargs.get( "logprinter",lambda x:print("log message:",x) )
     def add_queue(self,name,limit):
         self.queues[name] = Queue(name,limit)
     def enqueue(self,j):
@@ -298,6 +300,7 @@ class Queues():
                 njobs_to_go = self.update_jobs_status()
                 if njobs_to_go==0: break
                 time.sleep(1)
+            self.logprinter("Done all jobs")
     def update_jobs_status(self):
         #
         # ids of all jobs; ids may be 1 if not started, or valid but already finished
@@ -387,7 +390,8 @@ suites: {self.suites}
       else: regressionfile = None
       count = 1
       jobs = []; jobids = []
-      queues = Queues(testing) ## should probaby be global
+      queues = Queues(testing=testing,
+                      logprinter=lambda x:logfile.write(x+"\n")) ## should probaby be global
       queues.add_queue("development",1)
       queues.add_queue("normal",10)
       queues.add_queue("rtx",4)
