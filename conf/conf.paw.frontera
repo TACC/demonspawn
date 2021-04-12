@@ -3,11 +3,11 @@ user eijkhout
 modules intel/19.0.5 impi/19.0.7
 account A-ccsc
 queue normal
-scriptdir /work/00434/eijkhout/demonspawn/paw.scripts
-outputdir /work/00434/eijkhout/demonspawn/paw.output
+scriptdir /work2/00434/eijkhout/demonspawn/paw.scripts
+outputdir /work2/00434/eijkhout/demonspawn/paw.output
 nodes 2
 ppn 1
-suite name:paw-mpi-p2p type:mpi dir:/work/00434/eijkhout/mpi-regression/paw/installation-frontera p2p_*
+suite name:paw-mpi-p2p type:mpi dir:/work2/00434/eijkhout/mpi-regression/paw/installation-frontera p2p_*
 ppn 56
 nodes 2:5:10:50:200
-suite name:paw-mpi-col type:mpi dir:/work/00434/eijkhout/mpi-regression/paw/installation-frontera col_*
+suite name:paw-mpi-col type:mpi dir:/work2/00434/eijkhout/mpi-regression/paw/installation-frontera col_*

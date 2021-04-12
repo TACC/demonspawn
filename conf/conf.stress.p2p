@@ -3,8 +3,8 @@ user eijkhout
 modules intel/18.0.2 impi/18.0.2
 account A-ccsc
 queue normal
-let rootdir = /work/00434/eijkhout/demonspawn
-let stressdir  = /work/00434/eijkhout/parallel-programming-private/mpi-stresstest
+let rootdir = /work2/00434/eijkhout/demonspawn
+let stressdir  = /work2/00434/eijkhout/parallel-programming-private/mpi-stresstest
 scriptdir %[rootdir]/stress.scripts.frontera
 outputdir %[rootdir]/stress.output.frontera
 nodes 2

@@ -10,16 +10,16 @@ system frontera
 user eijkhout
 modules intel/19.1.1 impi/19.0.7
 account A-ccsc
-queue rtx
+queue development
 
 #
 #  describe this run
 #
 let rootdir = /work2/00434/eijkhout/demonspawn
 # slurm scripts
-scriptdir %[rootdir]/paw.scripts.%[system]-rtx.%[date]
+scriptdir %[rootdir]/stress.scripts.%[system].%[date]
 # all output
-outputdir %[rootdir]/paw.output.%[system]-rtx.%[date]
+outputdir %[rootdir]/stress.output.%[system].%[date]
 # number of nodes
 nodes 2
 # processes per node
@@ -27,10 +27,12 @@ ppn 1
 # verbose output
 trace 1
 # data for regression
-regression grep:Maximum field:4 take:avg
+#regression grep:Maximum field:4 take:avg
 
 #
-# benchmark to run
+# p2p benchmark
 #
-let pawdir  = /work2/00434/eijkhout/mpi-regression/paw/installation_git_%[system]_%[modules]
-suite name:paw-mpi-p2p type:mpi dir:%[pawdir] p2p_*
+let stressdir  = /work2/00434/eijkhout/mpi-regression/mpi-stresstest/%[system]_%[modules]
+# define the tests to run
+suite name:stresstest type:mpi dir:%[stressdir] tags
+

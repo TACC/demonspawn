@@ -15,7 +15,7 @@ queue normal
 #
 #  describe this run
 #
-let rootdir = /work/00434/eijkhout/demonspawn
+let rootdir = /work2/00434/eijkhout/demonspawn
 # slurm scripts
 scriptdir %[rootdir]/paw.scripts.%[system].%[date]
 # all output
@@ -33,5 +33,5 @@ regression grep:5.242880E+05 field:2 take:avg
 nodes 2:5:10:50:200
 # processes per node
 ppn 2:20:48
-let pawdir  = /work/00434/eijkhout/mpi-regression/paw/installation_git_%[system]_%[modules]
+let pawdir  = /work2/00434/eijkhout/mpi-regression/paw/installation_git_%[system]_%[modules]
 suite name:paw-mpi-col type:mpi dir:%[pawdir] col_*
