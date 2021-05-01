@@ -33,7 +33,7 @@ class Job():
         #default values to be overwritten later
         self.suite = "paw"
         self.queue = "normal"
-        self.nodes_cores = 1,10
+        self.nodes = 1; self.cores = 10
         self.runtime = "00:05:00"
         self.user = "nosuchuser"
         self.account = "MyAccount"
@@ -50,7 +50,6 @@ class Job():
             self.__dict__[key] = val
         tracestring = f"Creating job <<{self.name()}>> with" + tracestring
 
-        self.nodes,self.ppn = self.nodes_cores
         if not self.logfile: 
             print("Trying to create job without logfile"); sys.exit(1)
         if self.regression and not self.regressionfile:
@@ -83,7 +82,13 @@ module reset
 module load {self.modules}
 
 cd {self.outputdir}
-{bench_program} | tee {self.output_file_name}
+program={self.dir}/{self.benchmark}
+if [ ! -f "$program" ] ; then 
+  echo "Program does not exist: $program"
+  exit 1
+fi
+output={self.output_file_name}
+{self.runner}$program | tee $output
 """
         with open( self.script_name,"w" ) as batch_file:
             batch_file.write(script_content)
@@ -95,7 +100,8 @@ cd {self.outputdir}
             print("No {} supplied to job".format(dirname)); raise
         dir = self.__dict__[dirname] 
         if not os.path.exists(dir):
-            print("dirname <<{}>> does not exist".format(dir)); raise
+            error = "dirname <<{}>> does not exist".format(dir)
+            raise Exception(error)
     def name(self):
         return re.sub(" ","_",
                       re.sub("/","",
@@ -146,9 +152,9 @@ cd {self.outputdir}
                 # it has an actual id
                 if self.status!="POST":
                   self.status = "POST" # done running
-                  if self.logfile:
-                    self.logfile.write(f"Doing regression <<{self.regression}>> on job {self.name()}\n")
                   if self.regression:
+                    if self.logfile:
+                      self.logfile.write(f"Doing regression <<{self.regression}>> on job {self.name()} to <<{self.output_file_name}>> and general regression file\n")
                     self.do_regression()
                     if self.logfile: self.logfile.write(f".. done regression\n")
     def is_running(self):
@@ -174,14 +180,24 @@ cd {self.outputdir}
                 continue
             k,v = kv.split(":")
             rtest[k] = v
-        v = rtest["grep"]
-        with open(self.output_file_name,"r") as output_file:
-          for line in output_file:
-            line = line.strip()
-            if re.search(v,line):
-              print(line)
-              self.logfile.write(line+"\n")
-              self.regressionfile.write(self.name()+":"+line+"\n")
+        if "grep" in rtest.keys():
+          greptext = re.sub("_"," ",rtest["grep"])
+          try:
+            with open(self.output_file_name,"r") as output_file:
+              found = False
+              for line in output_file:
+                line = line.strip()
+                if re.search(greptext,line):
+                  found = True
+                  self.logfile.write(f"File: {self.name()}\n{line}\n")
+                  self.regressionfile.write(f"File: {self.name()}\n{line}\n")
+              if not found:
+                self.logfile.write\
+                  (f"{self.name()}: regression failed to find <<{greptext}>>\n")
+                self.regressionfile.write\
+                  (f"{self.name()}: regression failed to find <<{greptext}>>\n")
+          except FileNotFoundError as e :
+            print(f"Could not open file for regression: <<{e}>>")
 def parse_suite(suite_option_list):
   suite = { "name" : "unknown", "runner" : "", "dir" : "./", "apps" : [] }
   for opt in suite_option_list:
@@ -229,7 +245,7 @@ def nodes_cores_values(configuration):
     nodes = [ nodes ]
   if not isinstance(ppn,list):
     ppn = [ ppn ]
-  nodes_cores = [ [ [n,p] for n in nodes ] for p in ppn ]
+  nodes_cores = [ [ [n,p] for n in nodes ] for p in ppn ] # this assumes ppn !
   nodes_cores = [ np for sub in nodes_cores for np in sub ] 
   print("nodes_cores:",nodes_cores)
   return nodes_cores
@@ -334,7 +350,13 @@ class Queues():
 class TestSuite():
   def __init__(self,suite,configuration):
     ## this needs to come from the `suite' list
+    self.logfile        = configuration.get("logfile")
+    self.regressionfile = configuration.get("regressionfile")
+    self.scriptdir      = configuration.get("scriptdir")
+    self.outputdir      = configuration.get("outputdir")
+    self.starttime      = configuration.get("starttime","00-00-00")
     self.name = configuration.pop("name","testsuite")
+    self.logfile.write(f"================\nTestsuite: {self.name}\n================\n")
     self.configuration = configuration
     self.testing = self.configuration.get("testing",False)
     self.modules = self.configuration.get( "modules","intel" )
@@ -343,30 +365,7 @@ class TestSuite():
 
     self.nodes_cores = nodes_cores_values(self.configuration)
     self.suites = [ parse_suite( suite ) ]
-    # scripts
-    dirname = "scriptdir"
-    dirpath = self.configuration.get(dirname,os.getcwd()+"/dir."+dirname)
-    self.SetSuiteDir(dirname,dirpath)
-    with open(self.scriptdir+"/README","w") as readme:
-      readme.write("This directory contains automatically generated slurm scripts\n")
-    # outputs
-    dirname = "outputdir"
-    dirpath = self.configuration.get(dirname,os.getcwd()+"/dir."+dirname)
-    self.SetSuiteDir(dirname,dirpath)
-
     print("{}".format(str(self)))
-  def SetSuiteDir(self,dirname,dirpath):
-    if dirpath[0]!="/":
-      print("Directory name for <<{}>> needs to be absolute, not {}"\
-            .format(dirname,dirpath))
-      raise
-    self.__dict__[dirname] = dirpath
-    try :
-      os.mkdir(dirpath)
-      print("first make {}: {}",dirname,dirpath)
-    except FileExistsError :
-      print("already exists {}: {}",dirname,dirpath)
-      pass
   def __str__(self):
     description = f"""
 ################################################################
@@ -378,20 +377,17 @@ suites: {self.suites}
 ################################################################
 """ 
     return description
-  def run(self,testing=False):
-      starttime = datetime.date.today()
-      logfilename = self.outputdir+"/log-%s.txt" % starttime
-      logfile = open(logfilename,"a")
+  def run(self,**kwargs):
+      testing = kwargs.get("testing",False)
+      debug = kwargs.get("debug",False)
+      logfile = self.logfile; regressionfile = self.regressionfile
+      logfile.write(f"Test suite run at {self.starttime}\n")
       logfile.write(str(self))
-      logfile.write("Test suite run at {}".format(starttime))
-      if self.regression:
-          regressionfilename = self.outputdir+"/regression-%s.txt" % starttime
-          regressionfile = open(regressionfilename,"a")
-      else: regressionfile = None
       count = 1
       jobs = []; jobids = []
+      # should queues be global?
       queues = Queues(testing=testing,
-                      logprinter=lambda x:logfile.write(x+"\n")) ## should probaby be global
+                      logprinter=lambda x:logfile.write(x+"\n"))
       queues.add_queue("development",1)
       queues.add_queue("normal",10)
       queues.add_queue("rtx",4)
@@ -399,10 +395,12 @@ suites: {self.suites}
           for benchmark in suite["apps"]:
               suitename = suite["name"]
               print("="*16,f"{count}: submitting suite={suitename} benchmark={benchmark} at {datetime.datetime.now()}")
-              for nnodes,ppn in self.nodes_cores:
-                print(".. on %d nodes" % nnodes)
+              self.logfile.write(f"{count}: submitting suite={suitename} benchmark={benchmark}")
+              for nodes,ppn in self.nodes_cores:
+                print(".. on %d nodes" % nodes)
+                self.logfile.write(f".. N={nodes} ppn={ppn}")
                 job = Job(scriptdir=self.scriptdir,outputdir=self.outputdir,
-                          nodes=nnodes,ppn=ppn,
+                          nodes=nodes,ppn=ppn,
                           queue=self.configuration["queue"],
                           dir=suite["dir"],
                           benchmark=benchmark,modules=self.modules,
@@ -413,7 +411,6 @@ suites: {self.suites}
                           trace=True)
                 script_file_name = job.generate_script()
                 output_file_name = job.output_file_name
-
                 logfile.write(f"""
 %%%%%%%%%%%%%%%%
 {count:3}: script={script_file_name}
@@ -421,9 +418,5 @@ suites: {self.suites}
 """)
                 queues.enqueue(job)
                 count += 1
-      print(f"See log file: {logfilename}")
       queues.wait_for_jobs()
-      print(f"See log file: {logfilename}")
-      if self.regression:
-          print(f"See regression file: {regressionfilename}")
 

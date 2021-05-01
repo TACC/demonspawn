@@ -127,33 +127,6 @@ def SpecLine(specline,macros,options,suites):
       print("setting spec: {} to value=<<{}>>".format(key,fields))
       DefineMacro(key,fields,macros)
     return True
-def parse_configuration(filename):
-  options = {}
-  suites = []
-  system = os.environ["TACC_SYSTEM"]
-  macros = { "system":system,"date":str( datetime.date.today() ) }
-  with open(filename,"r") as configuration:
-    for specline in configuration:
-      specline = specline.strip()
-      if re.match("#",specline) or re.match(r'^[ \t]*$',specline):
-        continue
-      #
-      # detect macro definitions, starting with "let"
-      #
-      if LetLine(specline,macros):
-        continue
-      #
-      # simple key-value lines
-      #
-      if KeyValLine(specline,macros,options,system):
-        continue
-      #
-      # other specification lines with 3 or more fields
-      #
-      if SpecLine(specline,macros,options,suites):
-        continue
-    options["suites"] = suites
-    return options
 
 def print_configuration(confdict):
   print("""
@@ -176,31 +149,91 @@ Test job in main
 ================
 submitted as {}""".format(str(job),id))
 
+class Configuration():
+  def __init__(self,**kwargs):
+    self.configuration = {}
+    self.starttime = re.sub( " ","-",str( datetime.datetime.now() ) )
+    self.configuration["starttime"] = self.starttime
+    self.configuration["testing"] = kwargs.get("testing",False)
+    self.configuration["debug"] = kwargs.get("debug",False)
+  def __del__(self):
+    self.configuration["logfile"].close()
+    self.configuration["regressionfile"].close()
+  def parse(self,filename,**kwargs):
+    suites = []
+    system = os.environ["TACC_SYSTEM"]
+    macros = { "system":system,"date":str( datetime.date.today() ) }
+    with open(filename,"r") as configuration:
+      for specline in configuration:
+        specline = specline.strip()
+        if re.match("#",specline) or re.match(r'^[ \t]*$',specline):
+          continue
+        #
+        # detect macro definitions, starting with "let"
+        #
+        if LetLine(specline,macros):
+          continue
+        #
+        # simple key-value lines
+        #
+        if KeyValLine(specline,macros,self.configuration,system):
+          continue
+        #
+        # other specification lines with 3 or more fields
+        #
+        if SpecLine(specline,macros,self.configuration,suites):
+          continue
+    self.configuration["suites"] = suites
+    assert "suites" in self.configuration.keys()
+  def set_dirs(self,name,rootdir):
+    self.logfile        = open( f"{rootdir}/log-{name}-{self.starttime}.txt","w" )
+    self.regressionfile = open( f"{rootdir}/regression-{name}-{self.starttime}.txt","w" )
+    self.configuration["logfile"] = self.logfile
+    self.configuration["regressionfile"] = self.regressionfile
+    self.scriptdir = f"{rootdir}/scripts-{name}-{self.starttime}"
+    self.outputdir = f"{rootdir}/output-{name}-{self.starttime}"
+    self.configuration["scriptdir"] = self.scriptdir
+    self.configuration["outputdir"] = self.outputdir
+    try :
+      os.mkdir( self.scriptdir )
+      os.mkdir( self.outputdir )
+    except FileExistsError :
+      print("script / output dir already exists")
+      pass
+    self.configuration["scriptdir"] = self.scriptdir
+    self.configuration["outputdir"] = self.outputdir
+  def run(self):
+    for s in self.configuration["suites"]:
+      s.run(debug=self.configuration["debug"],testing=self.configuration["testing"])
+
 if __name__ == "__main__":
   args = sys.argv[1:]
-  configuration = {}
   testing = False                      
   debug = False
-  while len(args)>0:
+  name = "spawn"
+  rootdir = os.getcwd()
+  while re.match("^-",args[0]):
     if args[0]=="-h":
-      print("Usage: python3 batch.py [ -h ] [ -d --debug ] [ -t --test ] [ -c configuration ]")
+      print("Usage: python3 batch.py [ -h ]  [ -d --debug ] [ -t --test ] [ -n name ] [ -r rootdir ]")
       sys.exit(0)
-    elif args[0]=="-c":
-      args = args[1:]
-      if len(args)==0 or re.match("^-",args[0]):
-        print("ERROR: expected name of configuration file")
-        sys.exit(1)
-      configuration_file = args[0]
-      configuration = parse_configuration(configuration_file)
+    elif args[0] == "-n":
+      args = args[1:]; name = args[0]
+    elif args[0] == "-r":
+      args = args[1:]; rootdir = args[0]
     elif args[0] in [ "-t", "--test" ]:
       testing = True
     elif args[0] in [ "-d", "--debug" ]:
       debug = True
     args = args[1:]
-  configuration["debug"] = debug
-  configuration["testing"] = testing
-  print("returned configuration: {}".format(configuration))
-  print_configuration(configuration)
-  for s in configuration["suites"]:
-    s.run(testing=testing)
+  configuration = Configuration(debug=debug,testing=testing)
+  try :
+    os.mkdir( rootdir )
+  except FileExistsError :
+    print("rootdir already exists")
+    pass
+  configuration.set_dirs(name,rootdir)
+  configuration.parse(args[0])
+  configuration.run()
+  #print("returned configuration: {}".format(configuration))
+  #print_configuration(configuration)
   #print("Done.")

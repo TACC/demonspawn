@@ -1,6 +1,6 @@
 ##
 ## Demonspawn configuration 
-## for running the Carlos Rosales PAW suite
+## for running my own MPI stress test
 ##
 
 #
@@ -8,7 +8,7 @@
 #
 system frontera
 user eijkhout
-modules intel/19.1.1 impi/19.0.7
+modules intel/19.1.1 impi/19.0.9
 account A-ccsc
 queue development
 
@@ -16,10 +16,6 @@ queue development
 #  describe this run
 #
 let rootdir = /work2/00434/eijkhout/demonspawn
-# slurm scripts
-scriptdir %[rootdir]/stress.scripts.%[system].%[date]
-# all output
-outputdir %[rootdir]/stress.output.%[system].%[date]
 # number of nodes
 nodes 2
 # processes per node
@@ -32,7 +28,14 @@ trace 1
 #
 # p2p benchmark
 #
-let stressdir  = /work2/00434/eijkhout/mpi-regression/mpi-stresstest/%[system]_%[modules]
+let stressdir  = /work2/00434/eijkhout/parallel-programming-private/mpi-stresstest/%[system]_%[modules]
 # define the tests to run
-suite name:stresstest type:mpi dir:%[stressdir] tags
+suite name:stress-p2p type:mpi dir:%[stressdir] tags
 
+#
+# halfbandwidth
+#
+nodes 1:4:16
+ppn 50
+regression grep:Strategy
+suite name:stress-hbw type:mpi dir:%[stressdir] halfbandwidth
