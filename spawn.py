@@ -91,20 +91,7 @@ def KeyValLine(specline,macros,options,system):
     # define key/value also as macro
     value = DefineMacro(key,value,macros)
     print("setting key={} to value={}".format(key,value))
-    # but mostly set options[key] = value
-    if key=="nodes":
-      try :
-        options[key] = [ int(i) for i in value.split(":") ]
-      except:
-        print("Could not parse node specification <<{}>>".format(value))
-        raise
-    elif key=="ppn":
-      try :
-        options[key] = [ int(i) for i in value.split(":") ]
-      except:
-        print("Could not parse ppn specification <<{}>>".format(value))
-        raise
-    else: options[key] = value
+    options[key] = value
     return True
 def SpecLine(specline,macros,options,suites):
     # remaining case: multi-option line

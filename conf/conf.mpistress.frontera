@@ -35,7 +35,7 @@ suite name:stress-p2p type:mpi dir:%[stressdir] tags
 #
 # halfbandwidth
 #
-nodes 1:4:16
-ppn 50
+nodes 1,4,16
+ppn 20,30,40,50
 regression grep:Strategy
 suite name:stress-hbw type:mpi dir:%[stressdir] halfbandwidth

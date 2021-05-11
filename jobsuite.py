@@ -75,7 +75,7 @@ f"""#!/bin/bash
 #SBATCH -p {self.queue}
 #SBATCH -t {self.runtime}
 #SBATCH -N {self.nodes}
-#SBATCH --tasks-per-node {self.ppn}
+#SBATCH -n {self.cores}
 #SBATCH -A {self.account}
 
 module reset
@@ -108,11 +108,11 @@ output={self.output_file_name}
                              re.sub(".*/","",self.benchmark) \
                              +"-"+ \
                              module_string(self.modules) \
-                             +"-N"+str(self.nodes)+"-n"+str(self.ppn) \
+                             +"-N"+str(self.nodes)+"-n"+str(self.cores) \
                          ) \
                   )
     def __str__(self):
-        return f"{self.benchmark} N={self.nodes} ppn={self.cores} regression={self.regression}"
+        return f"{self.benchmark} N={self.nodes} cores={self.cores} regression={self.regression}"
     def submit(self,logfile=None):
         p = sp.Popen(["sbatch",self.script_name],stdout=sp.PIPE)
         submitted = False
@@ -229,6 +229,14 @@ def parse_suite(suite_option_list):
 ## return nodes and cores as list of equal length
 ##
 def nodes_cores_values(configuration):
+  def str2set(s):
+    if re.search(",",s):
+      s = [ int(p) for p in s.split(",") ]
+    elif re.search(":",s):
+      print("colon notation not yet supported"); raise Exception()
+    else:
+      s = [ int(s) ]
+    return s    
   nodes = configuration.get("nodes",None)
   if nodes is None:
     print("Node specification always needed"); raise Exception()
@@ -241,11 +249,20 @@ def nodes_cores_values(configuration):
   if cores is None and ppn is None:
     print("Configuration needs to specify `cores' or `ppn'")
     raise Exception()
-  if not isinstance(nodes,list):
-    nodes = [ nodes ]
-  if not isinstance(ppn,list):
-    ppn = [ ppn ]
-  nodes_cores = [ [ [n,p] for n in nodes ] for p in ppn ] # this assumes ppn !
+
+  ## nodes
+  print(f"nodes: {nodes}")
+  nodes = str2set(nodes)
+  print(f"=> nodes: {nodes}")
+  ## cores
+  print(f"ppn: {ppn}")
+  ppn = str2set(ppn)
+  print(f"=> ppn: {ppn}")
+  
+  ##
+  ## node/core combinations
+  ##
+  nodes_cores = [ [ [n,n*p] for n in nodes ] for p in ppn ] # this assumes ppn !
   nodes_cores = [ np for sub in nodes_cores for np in sub ] 
   print("nodes_cores:",nodes_cores)
   return nodes_cores
@@ -396,11 +413,11 @@ suites: {self.suites}
               suitename = suite["name"]
               print("="*16,f"{count}: submitting suite={suitename} benchmark={benchmark} at {datetime.datetime.now()}")
               self.logfile.write(f"{count}: submitting suite={suitename} benchmark={benchmark}")
-              for nodes,ppn in self.nodes_cores:
+              for nodes,cores in self.nodes_cores:
                 print(".. on %d nodes" % nodes)
-                self.logfile.write(f".. N={nodes} ppn={ppn}")
+                self.logfile.write(f".. N={nodes} cores={cores}")
                 job = Job(scriptdir=self.scriptdir,outputdir=self.outputdir,
-                          nodes=nodes,ppn=ppn,
+                          nodes=nodes,cores=cores,
                           queue=self.configuration["queue"],
                           dir=suite["dir"],
                           benchmark=benchmark,modules=self.modules,
