@@ -26,10 +26,13 @@ trace 1
 #regression grep:Maximum field:4 take:avg
 
 #
-# p2p benchmark
+# where is this set of suites located?
 #
 let stressdir  = /work2/00434/eijkhout/parallel-programming-private/mpi-stresstest/%[system]_%[modules]
-# define the tests to run
+
+#
+# p2p benchmark
+#
 suite name:stress-p2p type:mpi dir:%[stressdir] tags
 
 #

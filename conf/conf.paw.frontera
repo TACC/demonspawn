@@ -1,13 +1,33 @@
+##
+## Demonspawn configuration 
+## for running Carlos' paw tests
+##
+
+#
+# some global setup
+#
 system frontera
 user eijkhout
-modules intel/19.0.5 impi/19.0.7
+modules intel/19.1.1 impi/19.0.7
 account A-ccsc
 queue normal
-scriptdir /work2/00434/eijkhout/demonspawn/paw.scripts
-outputdir /work2/00434/eijkhout/demonspawn/paw.output
-nodes 2
+
+#
+# global settings for this run
+#
+let rootdir = /work2/00434/eijkhout/demonspawn
+let pawdir = /work2/00434/eijkhout/mpi-regression/paw/installation_git_%[system]_%[modules]
+
+#
+# point-to-point tests
+#
+nodes 3
 ppn 1
-suite name:paw-mpi-p2p type:mpi dir:/work2/00434/eijkhout/mpi-regression/paw/installation-frontera p2p_*
+suite name:paw-mpi-p2p type:mpi dir:%[pawdir] p2p_*
+
+#
+# collective tests
+#
 ppn 56
-nodes 2:5:10:50:200
-suite name:paw-mpi-col type:mpi dir:/work2/00434/eijkhout/mpi-regression/paw/installation-frontera col_*
+nodes 3,5,10,50,200
+suite name:paw-mpi-col type:mpi dir:%[pawdir] col_*
