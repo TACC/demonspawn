@@ -22,4 +22,4 @@ localclean ::
 	@/bin/rm -rf *~ slurm*.out *.pyc __pycache__ \
 	    *.out[0-9]*
 totalclean :: clean
-	@/bin/rm -rf log-*.txt regression-*.txt output-* scripts-*
+	@/bin/rm -rf log-* regression-* output-* scripts-*
