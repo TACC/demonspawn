@@ -1,0 +1,36 @@
+##
+## Demonspawn configuration 
+## for running the OSU benchmarks
+##
+
+#
+# some global setup
+#
+system frontera
+user eijkhout
+modules intel/19.1.1 impi/19.0.7
+account A-ccsc
+queue normal
+
+#
+#  describe this run
+#
+let rootdir = /work2/00434/eijkhout/demonspawn
+let benchmark = osu
+# slurm scripts
+scriptdir %[rootdir]/paw.scripts.%[benchmark].%[system].%[date]
+# all output
+outputdir %[rootdir]/paw.output.%[benchmark].%[system].%[date]
+
+# verbose output
+trace 1
+# data for regression
+#regression grep:Maximum field:4 take:avg
+
+#
+# collective benchmark
+#
+nodes 2:5:10
+ppn 20
+let osudir = /scratch1/05231/aruhela/libs/mvapich2-2.3.5/buildintel/libexec/osu-micro-benchmarks/mpi/collective
+suite name:osu-collective type:mpi dir:%[osudir] *

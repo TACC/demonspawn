@@ -28,6 +28,49 @@ def module_string(txt):
   txt = '_'.join( txt )
   return txt
 
+##
+## files may not be unique per job
+## so we need central bookkeeping
+## this is a singleton class
+##
+class SpawnFiles():
+  instance = None
+  class __spawnfiles():
+    def __init__(self):
+      self.files = {}
+      self.starttime = "now"
+      self.rootdir = "."
+    def open(self,fil,dir=None):
+      filedir = self.rootdir
+      if dir:
+        filedir = os.path.join( filedir,f"{dir}-{self.starttime}" )
+        filename = fil
+      else:
+        filename = f"{fil}-{self.starttime}"
+      try :
+        os.mkdir( filedir )
+      except FileExistsError :
+        print(f"filedir <<{filedir} already exists")
+        pass
+      print(f"Opening dir={filedir} fil={filename}")
+      fullname = f"{filedir}/{filename}-{self.starttime}.txt"
+      if fullname not in self.files.keys():
+        h = open(fullname,"w")
+        self.files[fullname] = h
+        return h
+      else:
+        return self.files[fullname]
+    def __del__(self):
+      for f in self.files.keys():
+        print(f"closing file: {f}")
+        close(self.files[f])
+  def __new__(cls):
+    if not SpawnFiles.instance:
+      SpawnFiles.instance = SpawnFiles.__spawnfiles()
+    return SpawnFiles.instance
+  def __getattr__(self,attr):
+    return self.instance.__getattr__(attr)
+
 class Job():
     def __init__(self,**kwargs):
         #default values to be overwritten later
@@ -38,9 +81,10 @@ class Job():
         self.user = "nosuchuser"
         self.account = "MyAccount"
         self.runner = "./"
-        self.benchmark = "echo foo"
+        self.benchmark = "bench"
         self.trace = False
-        self.logfile = None # this is the global log
+        self.outputfile = None; self.logfile = None
+        self.scriptdir = "."; self.outputdir = "."
         self.regressionfile = None
         self.set_has_not_been_submitted()
 
@@ -48,23 +92,25 @@ class Job():
         for key,val in kwargs.items():
             tracestring += " {}={}".format(key,val)
             self.__dict__[key] = val
-        tracestring = f"Creating job <<{self.name()}>> with" + tracestring
+        tracestring = f"Creating job <<{self.name()}>> with <<{tracestring}>>"
 
+        self.script_file_name = f"{self.scriptdir}/{self.benchmark}.script"
+        self.output_file_name = f"{self.outputdir}/{self.benchmark}.output"
         if not self.logfile: 
             print("Trying to create job without logfile"); sys.exit(1)
+        self.logfile.write(f"""
+%%%%%%%%%%%%%%%%
+{self.count:3}: script={self.script_file_name}
+ logout={self.output_file_name}
+""")
         if self.regression and not self.regressionfile:
             print("Trying to create regression job without regressionfile"); sys.exit(1)
-        self.CheckValidDir("scriptdir")
-        self.CheckValidDir("outputdir")
-        self.output_file_name = self.outputdir+"/"+self.name()+".spawnout"
-        self.slurm_output_file_name = self.outputdir+"/"+self.name()+".out%j"
-        self.script_name = self.scriptdir+"/"+self.name()
-        tracestring += f" in file <<{self.script_name}>>"
 
-        if self.trace:
-            print(tracestring)
-        if self.logfile:
-            self.logfile.write(tracestring+"\n")
+        self.slurm_output_file_name = self.name()+".out%j"
+        #tracestring += f" in file <<{self.script_file_name}>>"
+
+        if self.trace: print(tracestring)
+        if self.logfile: self.logfile.write(tracestring+"\n")
     def generate_script(self):
         bench_program = self.runner+self.dir+"/"+self.benchmark
         script_content =  \
@@ -87,17 +133,17 @@ if [ ! -f "$program" ] ; then
   echo "Program does not exist: $program"
   exit 1
 fi
-output={self.output_file_name}
+output={self.name()}.out
 {self.runner}$program | tee $output
 """
-        with open( self.script_name,"w" ) as batch_file:
+        with open( self.script_file_name,"w" ) as batch_file:
             batch_file.write(script_content)
         if self.trace:
-            print("Written job file <<{}>>".format(self.script_name))
-        return self.script_name
+            print("Written job file <<{}>>".format(self.script_file_name))
+        return self.script_file_name
     def CheckValidDir(self,dirname):
         if dirname not in self.__dict__.keys() or self.__dict__[dirname] is None:
-            print("No {} supplied to job".format(dirname)); raise
+            raise Exception(f"No dirname supplied to job")
         dir = self.__dict__[dirname] 
         if not os.path.exists(dir):
             error = "dirname <<{}>> does not exist".format(dir)
@@ -114,7 +160,7 @@ output={self.output_file_name}
     def __str__(self):
         return f"{self.benchmark} N={self.nodes} cores={self.cores} regression={self.regression}"
     def submit(self,logfile=None):
-        p = sp.Popen(["sbatch",self.script_name],stdout=sp.PIPE)
+        p = sp.Popen(["sbatch",self.script_file_name],stdout=sp.PIPE)
         submitted = False
         for line in io.TextIOWrapper(p.stdout, encoding="utf-8"):
             line = line.strip()
@@ -373,8 +419,8 @@ class TestSuite():
     self.outputdir      = configuration.get("outputdir")
     self.starttime      = configuration.get("starttime","00-00-00")
     self.name = configuration.pop("name","testsuite")
-    self.logfile.write(f"================\nTestsuite: {self.name}\n================\n")
     self.configuration = configuration
+    self.submit = self.configuration.get("submit",True)
     self.testing = self.configuration.get("testing",False)
     self.modules = self.configuration.get( "modules","intel" )
     self.regression = self.configuration.get("regression",False)
@@ -394,12 +440,23 @@ suites: {self.suites}
 ################################################################
 """ 
     return description
+  def type_dir(self,typ,dir=None):
+    if dir:
+      return f"{typ}-{dir}"
+    else:
+      return f"{typ}"
+  def open_file(self,typ,benchname,dir=None):
+    return SpawnFiles().open(benchname,dir=self.type_dir(typ,dir))
   def run(self,**kwargs):
       testing = kwargs.get("testing",False)
       debug = kwargs.get("debug",False)
-      logfile = self.logfile; regressionfile = self.regressionfile
-      logfile.write(f"Test suite run at {self.starttime}\n")
-      logfile.write(str(self))
+      #
+      # if there is a global name, open a global logfile
+      #
+      name = kwargs.get("name",None)
+      logfile = None
+      if name:
+        logfile = self.open_file("log",name)
       count = 1
       jobs = []; jobids = []
       # should queues be global?
@@ -409,31 +466,40 @@ suites: {self.suites}
       queues.add_queue("normal",10)
       queues.add_queue("rtx",4)
       for suite in self.suites:
+          suitename = suite["name"]
+          if not logfile:
+            logfile = self.open_file("log",suitename)
+          regressionfile = self.open_file("regress",name,suitename)
+          logfile.write(f"Test suite {self.name} run at {self.starttime}\n")
+          logfile.write(str(self))
           for benchmark in suite["apps"]:
-              suitename = suite["name"]
+              if name:
+                scriptdir = self.type_dir("script",dir=name)
+                outputdir = self.type_dir("output",dir=name)
+              else:
+                scriptdir = self.type_dir("script",dir=suitename)
+                outputdir = self.type_dir("output",dir=suitename)
+              if not os.path.isdir(scriptdir): os.mkdir(scriptdir)
+              if not os.path.isdir(outputdir): os.mkdir(outputdir)
               print("="*16,f"{count}: submitting suite={suitename} benchmark={benchmark} at {datetime.datetime.now()}")
-              self.logfile.write(f"{count}: submitting suite={suitename} benchmark={benchmark}")
+              logfile.write(f"{count}: submitting suite={suitename} benchmark={benchmark}")
               for nodes,cores in self.nodes_cores:
                 print(".. on %d nodes" % nodes)
-                self.logfile.write(f".. N={nodes} cores={cores}")
-                job = Job(scriptdir=self.scriptdir,outputdir=self.outputdir,
+                logfile.write(f".. N={nodes} cores={cores}")
+                job = Job(benchmark=benchmark,
+                          scriptdir=scriptdir,outputdir=outputdir,
+                          logfile=logfile,
                           nodes=nodes,cores=cores,
                           queue=self.configuration["queue"],
                           dir=suite["dir"],
-                          benchmark=benchmark,modules=self.modules,
+                          modules=self.modules,
                           regression=self.regression,regressionfile=regressionfile,
                           runner=suite["runner"],
                           account=self.configuration["account"],user=self.configuration["user"],
-                          logfile=logfile,
-                          trace=True)
-                script_file_name = job.generate_script()
-                output_file_name = job.output_file_name
-                logfile.write(f"""
-%%%%%%%%%%%%%%%%
-{count:3}: script={script_file_name}
- logout={output_file_name}
-""")
-                queues.enqueue(job)
+                          count=count,trace=True)
+                if self.submit:
+                  queues.enqueue(job)
                 count += 1
-      queues.wait_for_jobs()
+      if self.submit:
+        queues.wait_for_jobs()
 

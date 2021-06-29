@@ -19,6 +19,9 @@ import time
 # Local
 from jobsuite import *
 
+keyword_command = [ "nodes", "ppn", "suite", ]
+keyword_reserved = [ "system", "user", "modules", "account", "queue", ]
+
 def read_batch_template(filename):
   """
      Read in Slurm batch submit template and return as a string.
@@ -63,57 +66,15 @@ def macros_substitute(line,macros):
         replacement_text = module_string(replacement_text)
       subline = re.sub( m_search, replacement_text, subline )
   return subline
-
-run_user = "eijkhout"
-def DefineMacro(name,val,macros):
-  newval = macros_substitute( val,macros )
-  print("define {} to {}->{}".format(name,val,newval))
-  macros[name] = newval
-  return newval
-def LetLine(specline,macros):
-  letline = re.match(r'^ *(let )(.*)$',specline)
-  if letline:
-    print("Let, using macros:",macros)
-    name,val = macro_parse(letline.groups()[1], macros)
-    DefineMacro(name,val,macros)
-    return True
-  else: return False
-def KeyValLine(specline,macros,options,system):
-    # parse two-field line as macro;
-    # couple of special cases
-    fields = specline.split()
-    if len(fields)!=2: return False
-    key,value = fields
-    if key=="system":
-      if value!=system:
-        print("This configuration can only be run on <<{}>>".format(value))
-        sys.exit(1)
-    # define key/value also as macro
-    value = DefineMacro(key,value,macros)
-    print("setting key={} to value={}".format(key,value))
-    options[key] = value
-    return True
-def SpecLine(specline,macros,options,suites):
-    # remaining case: multi-option line
-    # (mostly "suite" and "modules")
-    key,fields = specline.split(" ",1)
-    if key=="suite":
-      fields = fields.split(" ")
-      values = [ macros_substitute(f,macros) for f in fields ]
-      # we can have more than one suite per configuration,
-      # each uses the currect options
-      print("defining testsuite with options=<<{}>>, configuration=<<{}>>"\
-            .format(values,options))
-      s = TestSuite( values,options )
-      suites.append(s)
-      print("defining suite <<{}>>".format(s))
-    else:
-      #fields = re.sub(" ","_",re.sub("/","-",fields))
-      fields = macros_substitute(fields,macros)
-      options[key] = fields
-      print("setting spec: {} to value=<<{}>>".format(key,fields))
-      DefineMacro(key,fields,macros)
-    return True
+def get_suite_name(options,values):
+  if "name" in options.keys():
+    return options["name"]
+  else:
+    for kv in values:
+      if  re.match("name:",kv):
+        k,v = kv.split(":")
+        return v
+  return "testsuite"
 
 def print_configuration(confdict):
   print("""
@@ -139,41 +100,56 @@ submitted as {}""".format(str(job),id))
 class Configuration():
   def __init__(self,**kwargs):
     self.configuration = {}
-    self.starttime = re.sub( " ","-",str( datetime.datetime.now() ) )
-    self.configuration["starttime"] = self.starttime
     self.configuration["testing"] = kwargs.get("testing",False)
+    self.configuration["submit"]  = kwargs.get("submit",True)
     self.configuration["debug"] = kwargs.get("debug",False)
+    system = os.environ["TACC_SYSTEM"]
+    self.starttime = re.sub( " ","-",str( datetime.datetime.now() ) )
+    self.macros = { "system":system,"starttime":self.starttime }
+    #self.files = SpawnFiles()
   def __del__(self):
     self.configuration["logfile"].close()
     self.configuration["regressionfile"].close()
   def parse(self,filename,**kwargs):
     suites = []
-    system = os.environ["TACC_SYSTEM"]
-    macros = { "system":system,"date":str( datetime.date.today() ) }
     with open(filename,"r") as configuration:
       for specline in configuration:
         specline = specline.strip()
+        #
+        # skip comments
         if re.match("#",specline) or re.match(r'^[ \t]*$',specline):
           continue
         #
-        # detect macro definitions, starting with "let"
+        # otherwise interpret as key/value
         #
-        if LetLine(specline,macros):
-          continue
+        key,value = specline.split(" ",1)
+        # special case: system
+        if key=="system":
+          if value!=self.macros["system"]:
+            print(f"This configuration can only be run on <<{value}>>")
+            sys.exit(1)
+        # special case: modules
+        if key=="modules":
+          value = value
+        # substitute any macros
+        value = macros_substitute( value,self.macros )
+        # special case: name
+        # otherwise
         #
-        # simple key-value lines
+        # suite or macro
         #
-        if KeyValLine(specline,macros,self.configuration,system):
-          continue
-        #
-        # other specification lines with 3 or more fields
-        #
-        if SpecLine(specline,macros,self.configuration,suites):
-          continue
+        if key=="suite":
+          fields = value.split(" ")
+          values = [ macros_substitute(f,self.macros) for f in fields ]
+          n = get_suite_name(self.macros,values)
+          s = TestSuite( values,self.macros )
+          suites.append(s)
+        else:
+          self.macros[key] = value
+        # ??? name,val = macro_parse(letline.groups()[1], macros)
     self.configuration["suites"] = suites
-    assert "suites" in self.configuration.keys()
-  def set_dirs(self,name,rootdir):
-    self.logfile        = open( f"{rootdir}/log-{name}-{self.starttime}.txt","w" )
+  def set_dirs(self,name,rootdir=None):
+    #self.logfile        = open( f"{rootdir}/log-{name}-{self.starttime}.txt","w" )
     self.regressionfile = open( f"{rootdir}/regression-{name}-{self.starttime}.txt","w" )
     self.configuration["logfile"] = self.logfile
     self.configuration["regressionfile"] = self.regressionfile
@@ -191,36 +167,42 @@ class Configuration():
     self.configuration["outputdir"] = self.outputdir
   def run(self):
     for s in self.configuration["suites"]:
-      s.run(debug=self.configuration["debug"],testing=self.configuration["testing"])
+      s.run(debug=self.configuration["debug"],
+            submit=self.configuration["submit"],
+            testing=self.configuration["testing"])
 
 if __name__ == "__main__":
   args = sys.argv[1:]
   testing = False                      
   debug = False
+  submit  = True
   name = "spawn"
   rootdir = os.getcwd()
   while re.match("^-",args[0]):
     if args[0]=="-h":
-      print("Usage: python3 batch.py [ -h ]  [ -d --debug ] [ -t --test ] [ -n name ] [ -r rootdir ]")
+      print("Usage: python3 batch.py [ -h ]  [ -d --debug ] [ -f --filesonly ] [ -t --test ] [ -n name ] [ -r rootdir ]")
       sys.exit(0)
     elif args[0] == "-n":
       args = args[1:]; name = args[0]
     elif args[0] == "-r":
       args = args[1:]; rootdir = args[0]
+    elif args[0] in [ "-f", "--filesonly" ] :
+      submit = False
     elif args[0] in [ "-t", "--test" ]:
-      testing = True
+      testing = True; submit = False
     elif args[0] in [ "-d", "--debug" ]:
       debug = True
     args = args[1:]
-  configuration = Configuration(debug=debug,testing=testing)
-  try :
-    os.mkdir( rootdir )
-  except FileExistsError :
-    print("rootdir already exists")
-    pass
-  configuration.set_dirs(name,rootdir)
+  configuration = Configuration(debug=debug,submit=submit,testing=testing)
+  spawnfiles = SpawnFiles()
+  spawnfiles.starttime = configuration.starttime
+  spawnfiles.rootdir = rootdir
+  #configuration.set_dirs(name,rootdir)
   configuration.parse(args[0])
+  # now activate all the suites
   configuration.run()
+  # close all files
+  SpawnFiles().__del__()
   #print("returned configuration: {}".format(configuration))
   #print_configuration(configuration)
   #print("Done.")
