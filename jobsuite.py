@@ -96,8 +96,10 @@ class Job():
 
         self.script_file_name = f"{self.scriptdir}/{self.benchmark}.script"
         self.output_file_name = f"{self.outputdir}/{self.benchmark}.output"
+        self.slurm_output_file_name = self.name()+".out%j"
         if not self.logfile: 
             print("Trying to create job without logfile"); sys.exit(1)
+        self.generate_script()
         self.logfile.write(f"""
 %%%%%%%%%%%%%%%%
 {self.count:3}: script={self.script_file_name}
@@ -105,9 +107,6 @@ class Job():
 """)
         if self.regression and not self.regressionfile:
             print("Trying to create regression job without regressionfile"); sys.exit(1)
-
-        self.slurm_output_file_name = self.name()+".out%j"
-        #tracestring += f" in file <<{self.script_file_name}>>"
 
         if self.trace: print(tracestring)
         if self.logfile: self.logfile.write(tracestring+"\n")
@@ -420,7 +419,6 @@ class TestSuite():
     self.starttime      = configuration.get("starttime","00-00-00")
     self.name = configuration.pop("name","testsuite")
     self.configuration = configuration
-    self.submit = self.configuration.get("submit",True)
     self.testing = self.configuration.get("testing",False)
     self.modules = self.configuration.get( "modules","intel" )
     self.regression = self.configuration.get("regression",False)
@@ -450,6 +448,7 @@ suites: {self.suites}
   def run(self,**kwargs):
       testing = kwargs.get("testing",False)
       debug = kwargs.get("debug",False)
+      submit = kwargs.get("submit",True)
       #
       # if there is a global name, open a global logfile
       #
@@ -497,9 +496,9 @@ suites: {self.suites}
                           runner=suite["runner"],
                           account=self.configuration["account"],user=self.configuration["user"],
                           count=count,trace=True)
-                if self.submit:
+                if submit:
                   queues.enqueue(job)
                 count += 1
-      if self.submit:
+      if submit:
         queues.wait_for_jobs()
 

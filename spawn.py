@@ -153,18 +153,16 @@ class Configuration():
     self.regressionfile = open( f"{rootdir}/regression-{name}-{self.starttime}.txt","w" )
     self.configuration["logfile"] = self.logfile
     self.configuration["regressionfile"] = self.regressionfile
-    self.scriptdir = f"{rootdir}/scripts-{name}-{self.starttime}"
-    self.outputdir = f"{rootdir}/output-{name}-{self.starttime}"
-    self.configuration["scriptdir"] = self.scriptdir
-    self.configuration["outputdir"] = self.outputdir
+    scriptdir = f"{rootdir}/scripts-{name}-{self.starttime}"
+    outputdir = f"{rootdir}/output-{name}-{self.starttime}"
+    self.configuration["scriptdir"] = scriptdir
+    self.configuration["outputdir"] = outputdir
     try :
-      os.mkdir( self.scriptdir )
-      os.mkdir( self.outputdir )
+      os.mkdir( scriptdir )
+      os.mkdir( outputdir )
     except FileExistsError :
       print("script / output dir already exists")
       pass
-    self.configuration["scriptdir"] = self.scriptdir
-    self.configuration["outputdir"] = self.outputdir
   def run(self):
     for s in self.configuration["suites"]:
       s.run(debug=self.configuration["debug"],
