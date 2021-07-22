@@ -47,14 +47,14 @@ def wait_for_jobs( jobs ):
       break
     time.sleep(1)
 
-def macro_parse(defspec,macros={}):
-  #print("macro parsing: <<{}>>".format(defspec))
-  name,val = defspec.split("=")
-  name = name.strip(" *").lstrip(" *")
-  val  =  val.strip(" *").lstrip(" *")
-  val = macros_substitute( val,macros )
-  print("defining macro <<{}>>=<<{}>>".format(name,val))
-  return name,val
+# def macro_parse(defspec,macros={}):
+#   #print("macro parsing: <<{}>>".format(defspec))
+#   name,val = defspec.split("=")
+#   name = name.strip(" *").lstrip(" *")
+#   val  =  val.strip(" *").lstrip(" *")
+#   val = macros_substitute( val,macros )
+#   print("defining macro <<{}>>=<<{}>>".format(name,val))
+#   return name,val
 
 def macros_substitute(line,macros):
   subline = line
@@ -100,16 +100,12 @@ submitted as {}""".format(str(job),id))
 class Configuration():
   def __init__(self,**kwargs):
     self.configuration = {}
-    self.configuration["testing"] = kwargs.get("testing",False)
-    self.configuration["submit"]  = kwargs.get("submit",True)
-    self.configuration["debug"] = kwargs.get("debug",False)
-    system = os.environ["TACC_SYSTEM"]
-    self.starttime = re.sub( " ","-",str( datetime.datetime.now() ) )
-    self.macros = { "system":system,"starttime":self.starttime }
-    #self.files = SpawnFiles()
-  def __del__(self):
-    self.configuration["logfile"].close()
-    self.configuration["regressionfile"].close()
+    self.configuration["jobname"]   = kwargs.get("jobname",None)
+    self.configuration["testing"]   = kwargs.get("testing",False)
+    self.configuration["submit"]    = kwargs.get("submit",True)
+    self.configuration["debug"]     = kwargs.get("debug",False)
+    self.configuration["system"]    = os.environ["TACC_SYSTEM"]
+    self.configuration["starttime"] = re.sub( " ","-",str( datetime.datetime.now() ) )
   def parse(self,filename,**kwargs):
     suites = []
     with open(filename,"r") as configuration:
@@ -125,14 +121,14 @@ class Configuration():
         key,value = specline.split(" ",1)
         # special case: system
         if key=="system":
-          if value!=self.macros["system"]:
+          if value!=self.configuration["system"]:
             print(f"This configuration can only be run on <<{value}>>")
             sys.exit(1)
         # special case: modules
         if key=="modules":
           value = value
         # substitute any macros
-        value = macros_substitute( value,self.macros )
+        value = macros_substitute( value,self.configuration )
         # special case: name
         # otherwise
         #
@@ -140,17 +136,17 @@ class Configuration():
         #
         if key=="suite":
           fields = value.split(" ")
-          values = [ macros_substitute(f,self.macros) for f in fields ]
-          n = get_suite_name(self.macros,values)
-          s = TestSuite( values,self.macros )
+          values = [ macros_substitute(f,self.configuration) for f in fields ]
+          n = get_suite_name(self.configuration,values)
+          s = TestSuite( values,self.configuration )
           suites.append(s)
         else:
-          self.macros[key] = value
-        # ??? name,val = macro_parse(letline.groups()[1], macros)
+          self.configuration[key] = value
+        # ??? name,val = macro_parse(letline.groups()[1], configuration)
     self.configuration["suites"] = suites
   def set_dirs(self,name,rootdir=None):
-    #self.logfile        = open( f"{rootdir}/log-{name}-{self.starttime}.txt","w" )
-    self.regressionfile = open( f"{rootdir}/regression-{name}-{self.starttime}.txt","w" )
+    self.regressionfile \
+      = SpawnFiles().open( f"{rootdir}/regression-{name}-{self.starttime}.txt","w" )
     self.configuration["logfile"] = self.logfile
     self.configuration["regressionfile"] = self.regressionfile
     scriptdir = f"{rootdir}/scripts-{name}-{self.starttime}"
@@ -193,7 +189,7 @@ if __name__ == "__main__":
     args = args[1:]
   configuration = Configuration(debug=debug,submit=submit,testing=testing)
   spawnfiles = SpawnFiles()
-  spawnfiles.starttime = configuration.starttime
+  spawnfiles.starttime = configuration.configuration["starttime"]
   spawnfiles.rootdir = rootdir
   #configuration.set_dirs(name,rootdir)
   configuration.parse(args[0])

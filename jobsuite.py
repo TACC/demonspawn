@@ -63,7 +63,7 @@ class SpawnFiles():
     def __del__(self):
       for f in self.files.keys():
         print(f"closing file: {f}")
-        close(self.files[f])
+        self.files[f].close()
   def __new__(cls):
     if not SpawnFiles.instance:
       SpawnFiles.instance = SpawnFiles.__spawnfiles()
@@ -417,7 +417,10 @@ class TestSuite():
     self.scriptdir      = configuration.get("scriptdir")
     self.outputdir      = configuration.get("outputdir")
     self.starttime      = configuration.get("starttime","00-00-00")
+
     self.name = configuration.pop("name","testsuite")
+    self.logfile = self.open_file("log",self.name)
+
     self.configuration = configuration
     self.testing = self.configuration.get("testing",False)
     self.modules = self.configuration.get( "modules","intel" )
@@ -449,13 +452,7 @@ suites: {self.suites}
       testing = kwargs.get("testing",False)
       debug = kwargs.get("debug",False)
       submit = kwargs.get("submit",True)
-      #
-      # if there is a global name, open a global logfile
-      #
-      name = kwargs.get("name",None)
-      logfile = None
-      if name:
-        logfile = self.open_file("log",name)
+
       count = 1
       jobs = []; jobids = []
       # should queues be global?
@@ -466,28 +463,24 @@ suites: {self.suites}
       queues.add_queue("rtx",4)
       for suite in self.suites:
           suitename = suite["name"]
-          if not logfile:
-            logfile = self.open_file("log",suitename)
-          regressionfile = self.open_file("regress",name,suitename)
-          logfile.write(f"Test suite {self.name} run at {self.starttime}\n")
-          logfile.write(str(self))
+          print(f"Suitename: {suitename}")
+          self.logfile = self.open_file("log",suitename)
+          regressionfile = self.open_file("regress",self.name,suitename)
+          self.logfile.write(f"Test suite {self.name} run at {self.starttime}\n")
+          self.logfile.write(str(self))
           for benchmark in suite["apps"]:
-              if name:
-                scriptdir = self.type_dir("script",dir=name)
-                outputdir = self.type_dir("output",dir=name)
-              else:
-                scriptdir = self.type_dir("script",dir=suitename)
-                outputdir = self.type_dir("output",dir=suitename)
+              scriptdir = self.type_dir("script",dir=self.name)
+              outputdir = self.type_dir("output",dir=self.name)
               if not os.path.isdir(scriptdir): os.mkdir(scriptdir)
               if not os.path.isdir(outputdir): os.mkdir(outputdir)
               print("="*16,f"{count}: submitting suite={suitename} benchmark={benchmark} at {datetime.datetime.now()}")
-              logfile.write(f"{count}: submitting suite={suitename} benchmark={benchmark}")
+              self.logfile.write(f"{count}: submitting suite={suitename} benchmark={benchmark}")
               for nodes,cores in self.nodes_cores:
                 print(".. on %d nodes" % nodes)
-                logfile.write(f".. N={nodes} cores={cores}")
+                self.logfile.write(f".. N={nodes} cores={cores}")
                 job = Job(benchmark=benchmark,
                           scriptdir=scriptdir,outputdir=outputdir,
-                          logfile=logfile,
+                          logfile=self.logfile,
                           nodes=nodes,cores=cores,
                           queue=self.configuration["queue"],
                           dir=suite["dir"],
