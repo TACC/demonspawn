@@ -47,15 +47,6 @@ def wait_for_jobs( jobs ):
       break
     time.sleep(1)
 
-# def macro_parse(defspec,macros={}):
-#   #print("macro parsing: <<{}>>".format(defspec))
-#   name,val = defspec.split("=")
-#   name = name.strip(" *").lstrip(" *")
-#   val  =  val.strip(" *").lstrip(" *")
-#   val = macros_substitute( val,macros )
-#   print("defining macro <<{}>>=<<{}>>".format(name,val))
-#   return name,val
-
 def macros_substitute(line,macros):
   subline = line
   for m in macros.keys():
@@ -124,13 +115,8 @@ class Configuration():
           if value!=self.configuration["system"]:
             print(f"This configuration can only be run on <<{value}>>")
             sys.exit(1)
-        # special case: modules
-        if key=="modules":
-          value = value
         # substitute any macros
         value = macros_substitute( value,self.configuration )
-        # special case: name
-        # otherwise
         #
         # suite or macro
         #
@@ -144,21 +130,6 @@ class Configuration():
           self.configuration[key] = value
         # ??? name,val = macro_parse(letline.groups()[1], configuration)
     self.configuration["suites"] = suites
-  def set_dirs(self,name,rootdir=None):
-    self.regressionfile \
-      = SpawnFiles().open( f"{rootdir}/regression-{name}-{self.starttime}.txt","w" )
-    self.configuration["logfile"] = self.logfile
-    self.configuration["regressionfile"] = self.regressionfile
-    scriptdir = f"{rootdir}/scripts-{name}-{self.starttime}"
-    outputdir = f"{rootdir}/output-{name}-{self.starttime}"
-    self.configuration["scriptdir"] = scriptdir
-    self.configuration["outputdir"] = outputdir
-    try :
-      os.mkdir( scriptdir )
-      os.mkdir( outputdir )
-    except FileExistsError :
-      print("script / output dir already exists")
-      pass
   def run(self):
     for s in self.configuration["suites"]:
       s.run(debug=self.configuration["debug"],
@@ -191,12 +162,9 @@ if __name__ == "__main__":
   spawnfiles = SpawnFiles()
   spawnfiles.starttime = configuration.configuration["starttime"]
   spawnfiles.rootdir = rootdir
-  #configuration.set_dirs(name,rootdir)
   configuration.parse(args[0])
   # now activate all the suites
   configuration.run()
   # close all files
   SpawnFiles().__del__()
-  #print("returned configuration: {}".format(configuration))
-  #print_configuration(configuration)
-  #print("Done.")
+
