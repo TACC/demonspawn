@@ -43,15 +43,13 @@ class SpawnFiles():
     def open(self,fil,dir=None):
       filedir = self.rootdir
       if dir:
-        filedir = os.path.join( filedir,f"{dir}-{self.starttime}" )
-        filename = fil
+        filedir = os.path.join( filedir,f"{dir}-{self.starttime}" ); filename = fil
       else:
         filename = f"{fil}-{self.starttime}"
       try :
         os.mkdir( filedir )
       except FileExistsError :
-        print(f"filedir <<{filedir} already exists")
-        pass
+        print(f"filedir <<{filedir} already exists"); pass
       print(f"Opening dir={filedir} fil={filename}")
       fullname = f"{filedir}/{filename}-{self.starttime}.txt"
       if fullname not in self.files.keys():
@@ -60,6 +58,10 @@ class SpawnFiles():
         return h
       else:
         return self.files[fullname]
+    def set(self,id,fil,dir=None):
+      self.__dict__[id] = self.open(fil,dir)
+    def get(self,id):
+      return self.__dict__[id]
     def __del__(self):
       for f in self.files.keys():
         print(f"closing file: {f}")
@@ -83,7 +85,7 @@ class Job():
         self.runner = "./"
         self.benchmark = "bench"
         self.trace = False
-        self.outputfile = None; self.logfile = None
+        self.outputfile = None; self.logfile = SpawnFiles().get("logfile")
         self.scriptdir = "."; self.outputdir = "."
         self.regressionfile = None
         self.set_has_not_been_submitted()
@@ -97,8 +99,6 @@ class Job():
         self.script_file_name = f"{self.scriptdir}/{self.benchmark}.script"
         self.output_file_name = f"{self.outputdir}/{self.benchmark}.output"
         self.slurm_output_file_name = self.name()+".out%j"
-        if not self.logfile: 
-            print("Trying to create job without logfile"); sys.exit(1)
         self.generate_script()
         self.logfile.write(f"""
 %%%%%%%%%%%%%%%%
@@ -158,15 +158,14 @@ output={self.name()}.out
                   )
     def __str__(self):
         return f"{self.benchmark} N={self.nodes} cores={self.cores} regression={self.regression}"
-    def submit(self,logfile=None):
+    def submit(self):
         p = sp.Popen(["sbatch",self.script_file_name],stdout=sp.PIPE)
         submitted = False
         for line in io.TextIOWrapper(p.stdout, encoding="utf-8"):
             line = line.strip()
             if self.trace:
                 print( line )
-            if self.logfile is not None:
-                self.logfile.write(line+"\n")
+            self.logfile.write(line+"\n")
             submitted = re.search("(Submitted.* )([0-9]+)",line)
             if submitted:
                 id = submitted.groups()[1]
@@ -201,7 +200,7 @@ output={self.name()}.out
                     if self.logfile:
                       self.logfile.write(f"Doing regression <<{self.regression}>> on job {self.name()} to <<{self.output_file_name}>> and general regression file\n")
                     self.do_regression()
-                    if self.logfile: self.logfile.write(f".. done regression\n")
+                    self.logfile.write(f".. done regression\n")
     def is_running(self):
         return self.jobid!="1" and self.status=="R"
     def is_pending(self):
@@ -412,14 +411,13 @@ class Queues():
 class TestSuite():
   def __init__(self,suite,configuration):
     ## this needs to come from the `suite' list
-    self.logfile        = configuration.get("logfile")
+    self.logfile        = SpawnFiles().get("logfile")
     self.regressionfile = configuration.get("regressionfile")
     self.scriptdir      = configuration.get("scriptdir")
     self.outputdir      = configuration.get("outputdir")
     self.starttime      = configuration.get("starttime","00-00-00")
 
     self.name = configuration.pop("name","testsuite")
-    self.logfile = self.open_file("log",self.name)
 
     self.configuration = configuration
     self.testing = self.configuration.get("testing",False)
@@ -457,14 +455,13 @@ suites: {self.suites}
       jobs = []; jobids = []
       # should queues be global?
       queues = Queues(testing=testing,
-                      logprinter=lambda x:logfile.write(x+"\n"))
+                      logprinter=lambda x:self.logfile.write(x+"\n"))
       queues.add_queue("development",1)
       queues.add_queue("normal",10)
       queues.add_queue("rtx",4)
       for suite in self.suites:
           suitename = suite["name"]
           print(f"Suitename: {suitename}")
-          self.logfile = self.open_file("log",suitename)
           regressionfile = self.open_file("regress",self.name,suitename)
           self.logfile.write(f"Test suite {self.name} run at {self.starttime}\n")
           self.logfile.write(str(self))
@@ -480,7 +477,6 @@ suites: {self.suites}
                 self.logfile.write(f".. N={nodes} cores={cores}")
                 job = Job(benchmark=benchmark,
                           scriptdir=scriptdir,outputdir=outputdir,
-                          logfile=self.logfile,
                           nodes=nodes,cores=cores,
                           queue=self.configuration["queue"],
                           dir=suite["dir"],

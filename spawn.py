@@ -91,12 +91,12 @@ submitted as {}""".format(str(job),id))
 class Configuration():
   def __init__(self,**kwargs):
     self.configuration = {}
-    self.configuration["jobname"]   = kwargs.get("jobname",None)
+    self.configuration["jobname"]   = kwargs.get("jobname")
     self.configuration["testing"]   = kwargs.get("testing",False)
     self.configuration["submit"]    = kwargs.get("submit",True)
     self.configuration["debug"]     = kwargs.get("debug",False)
     self.configuration["system"]    = os.environ["TACC_SYSTEM"]
-    self.configuration["starttime"] = re.sub( " ","-",str( datetime.datetime.now() ) )
+    self.configuration["starttime"] = kwargs.get("starttime","00-00-00")
   def parse(self,filename,**kwargs):
     suites = []
     with open(filename,"r") as configuration:
@@ -115,12 +115,19 @@ class Configuration():
           if value!=self.configuration["system"]:
             print(f"This configuration can only be run on <<{value}>>")
             sys.exit(1)
+        # special case: jobname can be set only once
+        if key=="jobname" and self.configuration["jobname"] is not "spawn":
+          print("Job name can be set only once, current: "+self.configuration["jobname"])
+          sys.exit(1)
         # substitute any macros
         value = macros_substitute( value,self.configuration )
         #
         # suite or macro
         #
         if key=="suite":
+          # first make sure we have a log file
+          SpawnFiles().set("logfile","log-"+self.configuration["jobname"])
+          # now parse
           fields = value.split(" ")
           values = [ macros_substitute(f,self.configuration) for f in fields ]
           n = get_suite_name(self.configuration,values)
@@ -141,14 +148,14 @@ if __name__ == "__main__":
   testing = False                      
   debug = False
   submit  = True
-  name = "spawn"
+  jobname = "spawn"
   rootdir = os.getcwd()
   while re.match("^-",args[0]):
     if args[0]=="-h":
       print("Usage: python3 batch.py [ -h ]  [ -d --debug ] [ -f --filesonly ] [ -t --test ] [ -n name ] [ -r rootdir ]")
       sys.exit(0)
     elif args[0] == "-n":
-      args = args[1:]; name = args[0]
+      args = args[1:]; jobname = args[0]
     elif args[0] == "-r":
       args = args[1:]; rootdir = args[0]
     elif args[0] in [ "-f", "--filesonly" ] :
@@ -158,10 +165,13 @@ if __name__ == "__main__":
     elif args[0] in [ "-d", "--debug" ]:
       debug = True
     args = args[1:]
-  configuration = Configuration(debug=debug,submit=submit,testing=testing)
+  starttime = re.sub( " ","-",str( datetime.datetime.now() ) )
   spawnfiles = SpawnFiles()
-  spawnfiles.starttime = configuration.configuration["starttime"]
+  spawnfiles.starttime = starttime
   spawnfiles.rootdir = rootdir
+  configuration = Configuration\
+                  (jobname=jobname,
+                   starttime=starttime,debug=debug,submit=submit,testing=testing)
   configuration.parse(args[0])
   # now activate all the suites
   configuration.run()
