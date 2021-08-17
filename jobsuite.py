@@ -49,7 +49,7 @@ class SpawnFiles():
       try :
         os.mkdir( filedir )
       except FileExistsError :
-        print(f"filedir <<{filedir} already exists"); pass
+        print(f"filedir <<{filedir}>> already exists"); pass
       print(f"Opening dir={filedir} fil={filename}")
       fullname = f"{filedir}/{filename}-{self.starttime}.txt"
       if fullname not in self.files.keys():
@@ -58,6 +58,25 @@ class SpawnFiles():
         return h
       else:
         return self.files[fullname]
+    def open_new(self,fil,dir=None):
+      filedir = self.rootdir
+      if dir:
+        filedir = os.path.join( filedir,f"{dir}-{self.starttime}" ); filename = fil
+      else:
+        filename = f"{fil}-{self.starttime}"
+      dir = re.match(r'(.+)/',filename)
+      try :
+        os.mkdir( filedir )
+      except FileExistsError :
+        print(f"filedir <<{filedir} already exists"); pass
+      print(f"Opening dir={filedir} fil={filename}")
+      fullname = f"{filedir}/{filename}-{self.starttime}.txt"
+      if fullname in self.files.keys():
+        throw(f"File <<{fullname}>> already exists")
+      else:
+        h = open(fullname,"w")
+        self.files[fullname] = h
+        return h
     def set(self,id,fil,dir=None):
       self.__dict__[id] = self.open(fil,dir)
     def get(self,id):
@@ -96,14 +115,16 @@ class Job():
             self.__dict__[key] = val
         tracestring = f"Creating job <<{self.name()}>> with <<{tracestring}>>"
 
-        self.script_file_name = f"{self.scriptdir}/{self.benchmark}.script"
-        self.output_file_name = f"{self.outputdir}/{self.benchmark}.output"
+        script_file_name = f"{self.benchmark}.script"
+        self.script_file = SpawnFiles().open_new( script_file_name,dir=f"{self.scriptdir}" )
+        output_file_name = f"{self.benchmark}.output"
+        self.output_file = SpawnFiles().open_new( output_file_name,dir=f"{self.outputdir}" )
         self.slurm_output_file_name = self.name()+".out%j"
         self.generate_script()
         self.logfile.write(f"""
 %%%%%%%%%%%%%%%%
-{self.count:3}: script={self.script_file_name}
- logout={self.output_file_name}
+{self.count:3}: script={script_file_name}
+ logout={output_file_name}
 """)
         if self.regression and not self.regressionfile:
             print("Trying to create regression job without regressionfile"); sys.exit(1)
@@ -135,18 +156,9 @@ fi
 output={self.name()}.out
 {self.runner}$program | tee $output
 """
-        with open( self.script_file_name,"w" ) as batch_file:
-            batch_file.write(script_content)
+        self.script_file.write(script_content)
         if self.trace:
-            print("Written job file <<{}>>".format(self.script_file_name))
-        return self.script_file_name
-    def CheckValidDir(self,dirname):
-        if dirname not in self.__dict__.keys() or self.__dict__[dirname] is None:
-            raise Exception(f"No dirname supplied to job")
-        dir = self.__dict__[dirname] 
-        if not os.path.exists(dir):
-            error = "dirname <<{}>> does not exist".format(dir)
-            raise Exception(error)
+            print(f"Written job file for <<{self.benchmark}>>")
     def name(self):
         return re.sub(" ","_",
                       re.sub("/","",
@@ -468,8 +480,8 @@ suites: {self.suites}
           for benchmark in suite["apps"]:
               scriptdir = self.type_dir("script",dir=self.name)
               outputdir = self.type_dir("output",dir=self.name)
-              if not os.path.isdir(scriptdir): os.mkdir(scriptdir)
-              if not os.path.isdir(outputdir): os.mkdir(outputdir)
+              # if not os.path.isdir(scriptdir): os.mkdir(scriptdir)
+              # if not os.path.isdir(outputdir): os.mkdir(outputdir)
               print("="*16,f"{count}: submitting suite={suitename} benchmark={benchmark} at {datetime.datetime.now()}")
               self.logfile.write(f"{count}: submitting suite={suitename} benchmark={benchmark}")
               for nodes,cores in self.nodes_cores:
