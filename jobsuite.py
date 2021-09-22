@@ -55,9 +55,9 @@ class SpawnFiles():
       if fullname not in self.files.keys():
         h = open(fullname,"w")
         self.files[fullname] = h
-        return h
+        return h,fullname
       else:
-        return self.files[fullname]
+        return self.files[fullname],fullname
     def open_new(self,fil,dir=None):
       filedir = self.rootdir
       if dir:
@@ -76,9 +76,10 @@ class SpawnFiles():
       else:
         h = open(fullname,"w")
         self.files[fullname] = h
-        return h
+        return h,fullname
     def set(self,id,fil,dir=None):
-      self.__dict__[id] = self.open(fil,dir)
+      h,_ = self.open(fil,dir)
+      self.__dict__[id] = h
     def get(self,id):
       return self.__dict__[id]
     def __del__(self):
@@ -115,29 +116,32 @@ class Job():
             self.__dict__[key] = val
         tracestring = f"Creating job <<{self.name()}>> with <<{tracestring}>>"
 
-        script_file_name = f"{self.benchmark}.script"
-        self.script_file = SpawnFiles().open_new( script_file_name,dir=f"{self.scriptdir}" )
+        self.script_file_name = f"{self.benchmark}.script"
+        script_file_handle,self.script_file_name \
+          = SpawnFiles().open_new( self.script_file_name,dir=f"{self.scriptdir}" )
         output_file_name = f"{self.benchmark}.output"
-        self.output_file = SpawnFiles().open_new( output_file_name,dir=f"{self.outputdir}" )
-        self.slurm_output_file_name = self.name()+".out%j"
-        self.generate_script()
+        self.output_file,_ = SpawnFiles().open_new( output_file_name,dir=f"{self.outputdir}" )
+        slurm_output_file_name = self.name()+".out%j"
+        script_file_handle.write\
+            (self.script_contents(slurm_out_file_name=slurm_output_file_name)+"\n")
         self.logfile.write(f"""
 %%%%%%%%%%%%%%%%
-{self.count:3}: script={script_file_name}
+{self.count:3}: script={self.script_file_name}
  logout={output_file_name}
 """)
+        if self.trace:
+            print(f"Written job file <<{self.script_file_name}>> for <<{self.benchmark}>>")
         if self.regression and not self.regressionfile:
             print("Trying to create regression job without regressionfile"); sys.exit(1)
-
         if self.trace: print(tracestring)
         if self.logfile: self.logfile.write(tracestring+"\n")
-    def generate_script(self):
+    def script_contents(self,slurm_out_file_name="job.out"):
         bench_program = self.runner+self.dir+"/"+self.benchmark
-        script_content =  \
+        return  \
 f"""#!/bin/bash
 #SBATCH -J {self.name()}
-#SBATCH -o {self.slurm_output_file_name}
-#SBATCH -e {self.slurm_output_file_name}
+#SBATCH -o {slurm_out_file_name}
+#SBATCH -e {slurm_out_file_name}
 #SBATCH -p {self.queue}
 #SBATCH -t {self.runtime}
 #SBATCH -N {self.nodes}
@@ -156,9 +160,6 @@ fi
 output={self.name()}.out
 {self.runner}$program | tee $output
 """
-        self.script_file.write(script_content)
-        if self.trace:
-            print(f"Written job file for <<{self.benchmark}>>")
     def name(self):
         return re.sub(" ","_",
                       re.sub("/","",
@@ -171,10 +172,13 @@ output={self.name()}.out
     def __str__(self):
         return f"{self.benchmark} N={self.nodes} cores={self.cores} regression={self.regression}"
     def submit(self):
+        if self.trace:
+            print(f"sbatch: {self.script_file_name}")
         p = sp.Popen(["sbatch",self.script_file_name],stdout=sp.PIPE)
         submitted = False
         for line in io.TextIOWrapper(p.stdout, encoding="utf-8"):
             line = line.strip()
+            print(line)
             if self.trace:
                 print( line )
             self.logfile.write(line+"\n")
@@ -184,7 +188,7 @@ output={self.name()}.out
                 self.set_has_been_submitted(id)
                 return self.jobid
         if not submitted:
-            raise Exception("Failure to submit")
+          raise Exception(f"Failure to submit <<{self.script_file_name}>>")
         return 0
     def set_has_not_been_submitted(self):
         self.jobid = "1"; self.status = "PRE"
@@ -457,7 +461,8 @@ suites: {self.suites}
     else:
       return f"{typ}"
   def open_file(self,typ,benchname,dir=None):
-    return SpawnFiles().open(benchname,dir=self.type_dir(typ,dir))
+    h,_ = SpawnFiles().open(benchname,dir=self.type_dir(typ,dir))
+    return h
   def run(self,**kwargs):
       testing = kwargs.get("testing",False)
       debug = kwargs.get("debug",False)

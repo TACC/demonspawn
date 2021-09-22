@@ -165,7 +165,11 @@ if __name__ == "__main__":
     elif args[0] in [ "-d", "--debug" ]:
       debug = True
     args = args[1:]
-  starttime = re.sub( " ","-",str( datetime.datetime.now() ) )
+  starttime = re.sub( " ","-",
+                      re.sub( ":","-",
+                              str( datetime.datetime.now() )
+                            )
+                    )
   spawnfiles = SpawnFiles()
   spawnfiles.starttime = starttime
   spawnfiles.rootdir = rootdir
