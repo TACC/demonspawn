@@ -121,9 +121,10 @@ class Job():
           = SpawnFiles().open_new( self.script_file_name,dir=f"{self.scriptdir}" )
         output_file_name = f"{self.benchmark}.output"
         self.output_file,_ = SpawnFiles().open_new( output_file_name,dir=f"{self.outputdir}" )
-        slurm_output_file_name = self.name()+".out%j"
+        self.slurm_output_file_name = self.name()+".out%j"
         script_file_handle.write\
-            (self.script_contents(slurm_out_file_name=slurm_output_file_name)+"\n")
+            (self.script_contents(slurm_out_file_name=self.slurm_output_file_name)+"\n")
+        script_file_handle.close()
         self.logfile.write(f"""
 %%%%%%%%%%%%%%%%
 {self.count:3}: script={self.script_file_name}
@@ -200,7 +201,7 @@ output={self.name()}.out
         self.logfile.write(f"Status to pending, id={id}")
         if re.search("%j",self.slurm_output_file_name):
             self.slurm_output_file_name = re.sub("%j",self.jobid,self.slurm_output_file_name)
-            self.logfile.write(f", output file name set to {self.output_file_name}")
+            self.logfile.write(f", output file name set to {self.slurm_output_file_name}")
         self.logfile.write("\n")
     def status_update(self,status):
         if status!="NS":
