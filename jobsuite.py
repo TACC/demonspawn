@@ -40,37 +40,41 @@ class SpawnFiles():
       self.files = {}
       self.starttime = "now"
       self.rootdir = "."
-    def open(self,fil,dir=None):
-      filedir = self.rootdir
+    def open(self,fil,dir=None,date=False):
+      filedir = self.rootdir; filename = fil
       if dir:
-        filedir = os.path.join( filedir,f"{dir}-{self.starttime}" ); filename = fil
-      else:
-        filename = f"{fil}-{self.starttime}"
+        filedir = os.path.join( filedir,f"{dir}" )
+      filedir = f"{filedir}-{self.starttime}"
+      if date:
+        filedir = f"{filedir}-{self.starttime}"
       try :
         os.mkdir( filedir )
       except FileExistsError :
         print(f"filedir <<{filedir}>> already exists"); pass
       print(f"Opening dir={filedir} fil={filename}")
-      fullname = f"{filedir}/{filename}-{self.starttime}.txt"
+      fullname = f"{filedir}/{filename}.txt"
       if fullname not in self.files.keys():
         h = open(fullname,"w")
         self.files[fullname] = h
         return h,fullname
       else:
         return self.files[fullname],fullname
-    def open_new(self,fil,dir=None):
-      filedir = self.rootdir
+    def open_new(self,fil,dir=None,date=False):
+      filedir = self.rootdir; filename = fil
       if dir:
-        filedir = os.path.join( filedir,f"{dir}-{self.starttime}" ); filename = fil
-      else:
-        filename = f"{fil}-{self.starttime}"
+        if dir=="":
+          raise Exception("Zero string for directory")
+        filedir = os.path.join( filedir,f"{dir}" )
+      filedir = f"{filedir}-{self.starttime}"
+      if date:
+        filedir = f"{filedir}-{self.starttime}"
       dir = re.match(r'(.+)/',filename)
       try :
         os.mkdir( filedir )
       except FileExistsError :
         print(f"filedir <<{filedir} already exists"); pass
       print(f"Opening dir={filedir} fil={filename}")
-      fullname = f"{filedir}/{filename}-{self.starttime}.txt"
+      fullname = f"{filedir}/{filename}.txt"
       if fullname in self.files.keys():
         throw(f"File <<{fullname}>> already exists")
       else:
@@ -121,9 +125,8 @@ class Job():
           = SpawnFiles().open_new( self.script_file_name,dir=f"{self.scriptdir}" )
         output_file_name = f"{self.benchmark}.output"
         self.output_file,_ = SpawnFiles().open_new( output_file_name,dir=f"{self.outputdir}" )
-        self.slurm_output_file_name = self.name()+".out%j"
-        script_file_handle.write\
-            (self.script_contents(slurm_out_file_name=self.slurm_output_file_name)+"\n")
+        self.slurm_output_file_name = f"{self.outputdir}/{self.name()}.out%j"
+        script_file_handle.write(self.script_contents()+"\n")
         script_file_handle.close()
         self.logfile.write(f"""
 %%%%%%%%%%%%%%%%
@@ -136,13 +139,13 @@ class Job():
             print("Trying to create regression job without regressionfile"); sys.exit(1)
         if self.trace: print(tracestring)
         if self.logfile: self.logfile.write(tracestring+"\n")
-    def script_contents(self,slurm_out_file_name="job.out"):
+    def script_contents(self):
         bench_program = self.runner+self.dir+"/"+self.benchmark
         return  \
 f"""#!/bin/bash
 #SBATCH -J {self.name()}
-#SBATCH -o {slurm_out_file_name}
-#SBATCH -e {slurm_out_file_name}
+#SBATCH -o {self.slurm_output_file_name}
+#SBATCH -e {self.slurm_output_file_name}
 #SBATCH -p {self.queue}
 #SBATCH -t {self.runtime}
 #SBATCH -N {self.nodes}
@@ -158,7 +161,7 @@ if [ ! -f "$program" ] ; then
   echo "Program does not exist: $program"
   exit 1
 fi
-output={self.name()}.out
+output={self.outputdir}/{self.name()}.slurm-out
 {self.runner}$program | tee $output
 """
     def name(self):
