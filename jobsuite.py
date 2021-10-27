@@ -76,7 +76,7 @@ class SpawnFiles():
       print(f"Opening dir={filedir} fil={filename}")
       fullname = f"{filedir}/{filename}.txt"
       if fullname in self.files.keys():
-        throw(f"File <<{fullname}>> already exists")
+        raise Exception(f"File <<{fullname}>> already exists")
       else:
         h = open(fullname,"w")
         self.files[fullname] = h
@@ -120,10 +120,11 @@ class Job():
             self.__dict__[key] = val
         tracestring = f"Creating job <<{self.name()}>> with <<{tracestring}>>"
 
-        self.script_file_name = f"{self.benchmark}.script"
+        node_spec = f"N{self.nodes}-n{self.cores}"
+        self.script_file_name = f"{self.benchmark}-{node_spec}.script"
         script_file_handle,self.script_file_name \
           = SpawnFiles().open_new( self.script_file_name,dir=f"{self.scriptdir}" )
-        output_file_name = f"{self.benchmark}.output"
+        output_file_name = f"{self.benchmark}-{node_spec}.output"
         self.output_file,_ = SpawnFiles().open_new( output_file_name,dir=f"{self.outputdir}" )
         self.slurm_output_file_name = f"{self.outputdir}/{self.name()}.out%j"
         script_file_handle.write(self.script_contents()+"\n")
@@ -487,8 +488,8 @@ suites: {self.suites}
           self.logfile.write(f"Test suite {self.name} run at {self.starttime}\n")
           self.logfile.write(str(self))
           for benchmark in suite["apps"]:
-              scriptdir = self.type_dir("script",dir=self.name)
-              outputdir = self.type_dir("output",dir=self.name)
+              scriptdir = SpawnFiles().open("script",dir=self.name)
+              outputdir = SpawnFiles().open("output",dir=self.name)
               # if not os.path.isdir(scriptdir): os.mkdir(scriptdir)
               # if not os.path.isdir(outputdir): os.mkdir(outputdir)
               print("="*16,f"{count}: submitting suite={suitename} benchmark={benchmark} at {datetime.datetime.now()}")
