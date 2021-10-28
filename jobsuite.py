@@ -38,49 +38,29 @@ class SpawnFiles():
   class __spawnfiles():
     def __init__(self):
       self.files = {}
-      self.starttime = "now"
+      self.starttime = "yyyymmdd"
       self.rootdir = "."
-    def open(self,fil,dir=None,date=False):
+    def open(self,fil,dir=None,new=False):
       filedir = self.rootdir; filename = fil
       if dir:
         filedir = os.path.join( filedir,f"{dir}" )
       filedir = f"{filedir}-{self.starttime}"
-      if date:
-        filedir = f"{filedir}-{self.starttime}"
       try :
         os.mkdir( filedir )
       except FileExistsError :
-        print(f"filedir <<{filedir}>> already exists"); pass
+        print(f"Directory <<{filedir}>> already exists"); pass
       print(f"Opening dir={filedir} fil={filename}")
       fullname = f"{filedir}/{filename}.txt"
       if fullname not in self.files.keys():
         h = open(fullname,"w")
         self.files[fullname] = h
         return h,fullname
-      else:
-        return self.files[fullname],fullname
-    def open_new(self,fil,dir=None,date=False):
-      filedir = self.rootdir; filename = fil
-      if dir:
-        if dir=="":
-          raise Exception("Zero string for directory")
-        filedir = os.path.join( filedir,f"{dir}" )
-      filedir = f"{filedir}-{self.starttime}"
-      if date:
-        filedir = f"{filedir}-{self.starttime}"
-      dir = re.match(r'(.+)/',filename)
-      try :
-        os.mkdir( filedir )
-      except FileExistsError :
-        print(f"filedir <<{filedir} already exists"); pass
-      print(f"Opening dir={filedir} fil={filename}")
-      fullname = f"{filedir}/{filename}.txt"
-      if fullname in self.files.keys():
+      elif new:
         raise Exception(f"File <<{fullname}>> already exists")
       else:
-        h = open(fullname,"w")
-        self.files[fullname] = h
-        return h,fullname
+        return self.files[fullname],fullname
+    def open_new(self,fil,dir=None):
+      return self.open(fil,dir=dir,new=True)
     def set(self,id,fil,dir=None):
       h,_ = self.open(fil,dir)
       self.__dict__[id] = h
@@ -121,11 +101,12 @@ class Job():
         tracestring = f"Creating job <<{self.name()}>> with <<{tracestring}>>"
 
         node_spec = f"N{self.nodes}-n{self.cores}"
-        self.script_file_name = f"{self.benchmark}-{node_spec}.script"
+        script_file_name = f"{self.benchmark}-{node_spec}.script"
+        print(f"script file name: {script_file_name}")
         script_file_handle,self.script_file_name \
-          = SpawnFiles().open_new( self.script_file_name,dir=f"{self.scriptdir}" )
+          = SpawnFiles().open_new( script_file_name,dir="script" )
         output_file_name = f"{self.benchmark}-{node_spec}.output"
-        self.output_file,_ = SpawnFiles().open_new( output_file_name,dir=f"{self.outputdir}" )
+        self.output_file,_ = SpawnFiles().open_new( output_file_name,dir="output" )
         self.slurm_output_file_name = f"{self.outputdir}/{self.name()}.out%j"
         script_file_handle.write(self.script_contents()+"\n")
         script_file_handle.close()
@@ -484,21 +465,16 @@ suites: {self.suites}
       for suite in self.suites:
           suitename = suite["name"]
           print(f"Suitename: {suitename}")
-          regressionfile = self.open_file("regress",self.name,suitename)
+          regressionfile = SpawnFiles().open("regress",self.name,suitename)
           self.logfile.write(f"Test suite {self.name} run at {self.starttime}\n")
           self.logfile.write(str(self))
           for benchmark in suite["apps"]:
-              scriptdir = SpawnFiles().open("script",dir=self.name)
-              outputdir = SpawnFiles().open("output",dir=self.name)
-              # if not os.path.isdir(scriptdir): os.mkdir(scriptdir)
-              # if not os.path.isdir(outputdir): os.mkdir(outputdir)
               print("="*16,f"{count}: submitting suite={suitename} benchmark={benchmark} at {datetime.datetime.now()}")
               self.logfile.write(f"{count}: submitting suite={suitename} benchmark={benchmark}")
               for nodes,cores in self.nodes_cores:
                 print(".. on %d nodes" % nodes)
                 self.logfile.write(f".. N={nodes} cores={cores}")
                 job = Job(benchmark=benchmark,
-                          scriptdir=scriptdir,outputdir=outputdir,
                           nodes=nodes,cores=cores,
                           queue=self.configuration["queue"],
                           dir=suite["dir"],
