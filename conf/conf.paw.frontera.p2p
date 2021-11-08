@@ -17,6 +17,7 @@ queue development
 #
 jobname paw-p2p
 rootdir /work2/00434/eijkhout/demonspawn
+outputdir /work2/00434/eijkhout/demonspawn-%[date]
 
 # verbose output
 trace 1
