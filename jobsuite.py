@@ -39,9 +39,15 @@ class SpawnFiles():
     def __init__(self):
       self.files = {}
       self.starttime = "yyyymmdd"
-      self.rootdir = "."
+      self.outputdir = "."
+    def setoutputdir(self,dir):
+      try:
+        os.mkdir(dir)
+      except:
+        raise Exception(f"Could not make dir <<{dir}>>") 
+      self.outputdir = dir
     def open(self,fil,dir=None,new=False):
-      filedir = self.rootdir; filename = fil
+      filedir = self.outputdir; filename = fil
       if dir:
         filedir = os.path.join( filedir,f"{dir}" )
       filedir = f"{filedir}-{self.starttime}"
@@ -474,7 +480,7 @@ suites: {self.suites}
               for nodes,cores in self.nodes_cores:
                 print(".. on %d nodes" % nodes)
                 self.logfile.write(f".. N={nodes} cores={cores}")
-                job = Job(benchmark=benchmark,
+                job = Job(benchmark=benchmark,outputdir=self.outputdir,
                           nodes=nodes,cores=cores,
                           queue=self.configuration["queue"],
                           dir=suite["dir"],

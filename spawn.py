@@ -97,6 +97,7 @@ class Configuration():
     self.configuration["debug"]     = kwargs.get("debug",False)
     self.configuration["system"]    = os.environ["TACC_SYSTEM"]
     self.configuration["starttime"] = kwargs.get("starttime","00-00-00")
+    self.configuration["date"] = self.configuration["starttime"]
   def parse(self,filename,**kwargs):
     suites = []
     with open(filename,"r") as configuration:
@@ -158,6 +159,7 @@ if __name__ == "__main__":
       args = args[1:]; jobname = args[0]
     elif args[0] == "-r":
       args = args[1:]; rootdir = args[0]
+      raise Exception("root -> output")
     elif args[0] in [ "-f", "--filesonly" ] :
       submit = False
     elif args[0] in [ "-t", "--test" ]:
@@ -172,11 +174,11 @@ if __name__ == "__main__":
                     )
   spawnfiles = SpawnFiles()
   spawnfiles.starttime = starttime
-  spawnfiles.rootdir = rootdir
   configuration = Configuration\
                   (jobname=jobname,
                    starttime=starttime,debug=debug,submit=submit,testing=testing)
   configuration.parse(args[0])
+  SpawnFiles().setoutputdir( configuration.configuration["outputdir"] )
   # now activate all the suites
   configuration.run()
   # close all files
