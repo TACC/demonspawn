@@ -20,6 +20,6 @@ clean :: localclean
 	done
 localclean ::
 	@/bin/rm -rf *~ slurm*.out *.pyc __pycache__ \
-	    *.out[0-9]*
+	    *.out[0-9]* *.slurm-out
 totalclean :: clean
 	@/bin/rm -rf log-* regress-* regression-* output-* script-* scripts-*
