@@ -38,40 +38,51 @@ class SpawnFiles():
   class __spawnfiles():
     def __init__(self):
       self.files = {}
-      self.starttime = "yyyymmdd"
-      self.outputdir = "."
+      self.outputdir = None
     def setoutputdir(self,dir):
       try:
         os.mkdir(dir)
       except:
         raise Exception(f"Could not make dir <<{dir}>>") 
       self.outputdir = dir
-    def open(self,fil,dir=None,new=False):
-      filedir = self.outputdir; filename = fil
+    def ensurefiledir(self,dir,subdir):
       if dir:
-        filedir = os.path.join( filedir,f"{dir}" )
-      filedir = f"{filedir}-{self.starttime}"
+        filedir = dir
+      else:
+        filedir = self.outputdir
+      if not filedir:
+        raise Exception("No output dir specified, in call or configuration")
+      if subdir: filedir=f"{filedir}/{subdir}"
       try :
         os.mkdir( filedir )
+        print(f"Making dir <<{filedir}>>")
       except FileExistsError :
         print(f"Directory <<{filedir}>> already exists"); pass
-      print(f"Opening dir={filedir} fil={filename}")
+      return filedir
+    def open(self,fil,key=None,dir=None,subdir=None,new=False):
+      print(f"Open <{fil}>> at <<{dir}/{subdir}>> new: <<{new}>>")
+      filedir = self.ensurefiledir(dir,subdir)
+      filename = fil
+      if not key: key = filename
+      print(f"Opening dir={filedir} file={filename} key={key}")
       fullname = f"{filedir}/{filename}.txt"
-      if fullname not in self.files.keys():
+      if key not in self.files.keys():
         h = open(fullname,"w")
-        self.files[fullname] = h
+        self.files[key] = h
         return h,fullname
       elif new:
-        raise Exception(f"File <<{fullname}>> already exists")
+        raise Exception(f"Key <<{key}>> File <<{fullname}>> already exists")
       else:
-        return self.files[fullname],fullname
-    def open_new(self,fil,dir=None):
-      return self.open(fil,dir=dir,new=True)
+        return self.files[key],fullname
+    def open_new(self,fil,key=None,dir=None,subdir=None):
+      print(f"Open new <{fil}>> at <<{dir}/{subdir}>>")
+      return self.open(fil,key=key,dir=dir,subdir=subdir,new=True)
     def set(self,id,fil,dir=None):
+      raise Exception("do not call set method")
       h,_ = self.open(fil,dir)
-      self.__dict__[id] = h
+      self.files[id] = h
     def get(self,id):
-      return self.__dict__[id]
+      return self.files[id]
     def __del__(self):
       for f in self.files.keys():
         print(f"closing file: {f}")
@@ -95,24 +106,27 @@ class Job():
         self.runner = "./"
         self.benchmark = "bench"
         self.trace = False
-        self.outputfile = None; self.logfile = SpawnFiles().get("logfile")
+        self.outputfile = None
+        self.logfile,_ = SpawnFiles().open("logfile")
         self.scriptdir = "."; self.outputdir = "."
         self.regressionfile = None
         self.set_has_not_been_submitted()
 
         tracestring = ""
         for key,val in kwargs.items():
-            tracestring += " {}={}".format(key,val)
-            self.__dict__[key] = val
+          if key in ["logfile"] :
+            raise Exception(f"Forbidden keyword <<{key}>>")
+          tracestring += " {}={}".format(key,val)
+          self.__dict__[key] = val
         tracestring = f"Creating job <<{self.name()}>> with <<{tracestring}>>"
 
         node_spec = f"N{self.nodes}-n{self.cores}"
         script_file_name = f"{self.benchmark}-{node_spec}.script"
         print(f"script file name: {script_file_name}")
         script_file_handle,self.script_file_name \
-          = SpawnFiles().open_new( script_file_name,dir="script" )
+          = SpawnFiles().open_new( script_file_name,subdir="scripts" )
         output_file_name = f"{self.benchmark}-{node_spec}.output"
-        self.output_file,_ = SpawnFiles().open_new( output_file_name,dir="output" )
+        self.output_file,_ = SpawnFiles().open_new( output_file_name,subdir="output" )
         self.slurm_output_file_name = f"{self.outputdir}/{self.name()}.out%j"
         script_file_handle.write(self.script_contents()+"\n")
         script_file_handle.close()
@@ -128,7 +142,7 @@ class Job():
         if self.trace: print(tracestring)
         if self.logfile: self.logfile.write(tracestring+"\n")
     def script_contents(self):
-        bench_program = self.runner+self.dir+"/"+self.benchmark
+        bench_program = self.runner+self.programdir+"/"+self.benchmark
         return  \
 f"""#!/bin/bash
 #SBATCH -J {self.name()}
@@ -144,7 +158,7 @@ module reset
 module load {self.modules}
 
 cd {self.outputdir}
-program={self.dir}/{self.benchmark}
+program={self.programdir}/{self.benchmark}
 if [ ! -f "$program" ] ; then 
   echo "Program does not exist: $program"
   exit 1
@@ -423,7 +437,7 @@ class TestSuite():
     self.regressionfile = configuration.get("regressionfile")
     self.scriptdir      = configuration.get("scriptdir")
     self.outputdir      = configuration.get("outputdir")
-    self.starttime      = configuration.get("starttime","00-00-00")
+    self.starttime      = configuration.get("date","00-00-00")
 
     self.name = configuration.pop("name","testsuite")
 
@@ -452,9 +466,6 @@ suites: {self.suites}
       return f"{typ}-{dir}"
     else:
       return f"{typ}"
-  def open_file(self,typ,benchname,dir=None):
-    h,_ = SpawnFiles().open(benchname,dir=self.type_dir(typ,dir))
-    return h
   def run(self,**kwargs):
       testing = kwargs.get("testing",False)
       debug = kwargs.get("debug",False)
@@ -471,7 +482,7 @@ suites: {self.suites}
       for suite in self.suites:
           suitename = suite["name"]
           print(f"Suitename: {suitename}")
-          regressionfile = SpawnFiles().open("regress",self.name,suitename)
+          regressionfile = SpawnFiles().open("regress",self.name,subdir=suitename)
           self.logfile.write(f"Test suite {self.name} run at {self.starttime}\n")
           self.logfile.write(str(self))
           for benchmark in suite["apps"]:
@@ -483,7 +494,7 @@ suites: {self.suites}
                 job = Job(benchmark=benchmark,outputdir=self.outputdir,
                           nodes=nodes,cores=cores,
                           queue=self.configuration["queue"],
-                          dir=suite["dir"],
+                          programdir=suite["dir"],
                           modules=self.modules,
                           regression=self.regression,regressionfile=regressionfile,
                           runner=suite["runner"],

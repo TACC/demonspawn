@@ -96,8 +96,7 @@ class Configuration():
     self.configuration["submit"]    = kwargs.get("submit",True)
     self.configuration["debug"]     = kwargs.get("debug",False)
     self.configuration["system"]    = os.environ["TACC_SYSTEM"]
-    self.configuration["starttime"] = kwargs.get("starttime","00-00-00")
-    self.configuration["date"] = self.configuration["starttime"]
+    self.configuration["date"] = kwargs.get("date","00-00-00")
   def parse(self,filename,**kwargs):
     suites = []
     with open(filename,"r") as configuration:
@@ -116,18 +115,20 @@ class Configuration():
           if value!=self.configuration["system"]:
             print(f"This configuration can only be run on <<{value}>>")
             sys.exit(1)
+        # substitute any macros
+        value = macros_substitute( value,self.configuration )
+
         # special case: jobname can be set only once
         if key=="jobname" and self.configuration["jobname"] is not "spawn":
           print("Job name can be set only once, current: "+self.configuration["jobname"])
           sys.exit(1)
-        # substitute any macros
-        value = macros_substitute( value,self.configuration )
+        # special case: output dir needs to be set immediately
+        elif key=="outputdir":
+          SpawnFiles().setoutputdir( value )
         #
         # suite or macro
         #
-        if key=="suite":
-          # first make sure we have a log file
-          SpawnFiles().set("logfile","log-"+self.configuration["jobname"])
+        elif key=="suite":
           # now parse
           fields = value.split(" ")
           values = [ macros_substitute(f,self.configuration) for f in fields ]
@@ -172,13 +173,12 @@ if __name__ == "__main__":
                               str( datetime.datetime.now() )
                             )
                     )
-  spawnfiles = SpawnFiles()
-  spawnfiles.starttime = starttime
+  ##  SpawnFiles().starttime = starttime
   configuration = Configuration\
-                  (jobname=jobname,
-                   starttime=starttime,debug=debug,submit=submit,testing=testing)
+                  (jobname=jobname,date=starttime,debug=debug,submit=submit,testing=testing)
+  SpawnFiles().open_new(f"logfile-{jobname}-{starttime}",key="logfile",dir=".")
   configuration.parse(args[0])
-  SpawnFiles().setoutputdir( configuration.configuration["outputdir"] )
+
   # now activate all the suites
   configuration.run()
   # close all files
