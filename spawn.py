@@ -96,7 +96,8 @@ class Configuration():
     self.configuration["submit"]    = kwargs.get("submit",True)
     self.configuration["debug"]     = kwargs.get("debug",False)
     self.configuration["system"]    = os.environ["TACC_SYSTEM"]
-    self.configuration["date"] = kwargs.get("date","00-00-00")
+    self.configuration["date"]      = kwargs.get("date","00-00-00")
+    self.configuration["pwd"]       = os.getcwd()
   def parse(self,filename,**kwargs):
     suites = []
     with open(filename,"r") as configuration:

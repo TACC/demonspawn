@@ -23,4 +23,4 @@ localclean ::
 	    *.out[0-9]* *.slurm-out
 totalclean :: clean
 	@/bin/rm -rf log-* regress-* regression-* output-* script-* scripts-* \
-	    testsuite-*
+	    logfile-* spawn-* testsuite-*

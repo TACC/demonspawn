@@ -65,15 +65,16 @@ class SpawnFiles():
       filename = fil
       if not key: key = filename
       print(f"Opening dir={filedir} file={filename} key={key}")
-      fullname = f"{filedir}/{filename}.txt"
+      filename = filename+".txt"
+      fullname = f"{filedir}/{filename}"
       if key not in self.files.keys():
         h = open(fullname,"w")
         self.files[key] = h
-        return h,fullname
+        return h,filedir,filename
       elif new:
         raise Exception(f"Key <<{key}>> File <<{fullname}>> already exists")
       else:
-        return self.files[key],fullname
+        return self.files[key],filedir,filename
     def open_new(self,fil,key=None,dir=None,subdir=None):
       print(f"Open new <{fil}>> at <<{dir}/{subdir}>>")
       return self.open(fil,key=key,dir=dir,subdir=subdir,new=True)
@@ -106,9 +107,8 @@ class Job():
         self.runner = "./"
         self.benchmark = "bench"
         self.trace = False
-        self.outputfile = None
-        self.logfile,_ = SpawnFiles().open("logfile")
-        self.scriptdir = "."; self.outputdir = "."
+        self.logfile,_,_ = SpawnFiles().open("logfile")
+        self.scriptdir = "."
         self.regressionfile = None
         self.set_has_not_been_submitted()
 
@@ -123,10 +123,12 @@ class Job():
         node_spec = f"N{self.nodes}-n{self.cores}"
         script_file_name = f"{self.benchmark}-{node_spec}.script"
         print(f"script file name: {script_file_name}")
-        script_file_handle,self.script_file_name \
+        script_file_handle,scriptdir,script_file_name \
           = SpawnFiles().open_new( script_file_name,subdir="scripts" )
+        self.script_file_name = f"{scriptdir}/{script_file_name}"
         output_file_name = f"{self.benchmark}-{node_spec}.output"
-        self.output_file,_ = SpawnFiles().open_new( output_file_name,subdir="output" )
+        self.output_file,self.outputdir,_ \
+          = SpawnFiles().open_new( output_file_name,subdir="output" )
         self.slurm_output_file_name = f"{self.outputdir}/{self.name()}.out%j"
         script_file_handle.write(self.script_contents()+"\n")
         script_file_handle.close()
@@ -482,7 +484,7 @@ suites: {self.suites}
       for suite in self.suites:
           suitename = suite["name"]
           print(f"Suitename: {suitename}")
-          regressionfile = SpawnFiles().open("regress",self.name,subdir=suitename)
+          regressionfile,_,_ = SpawnFiles().open("regress",self.name,subdir=suitename)
           self.logfile.write(f"Test suite {self.name} run at {self.starttime}\n")
           self.logfile.write(str(self))
           for benchmark in suite["apps"]:
