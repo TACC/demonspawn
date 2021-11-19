@@ -169,11 +169,9 @@ if __name__ == "__main__":
     elif args[0] in [ "-d", "--debug" ]:
       debug = True
     args = args[1:]
-  starttime = re.sub( " ","-",
-                      re.sub( ":","-",
-                              str( datetime.datetime.now() )
-                            )
-                    )
+  now = datetime.datetime.now()
+  starttime = f"{now.year}{now.month}{now.day}-{now.hour}.{now.minute}.{now.second}"
+
   ##  SpawnFiles().starttime = starttime
   configuration = Configuration\
                   (jobname=jobname,date=starttime,debug=debug,submit=submit,testing=testing)
