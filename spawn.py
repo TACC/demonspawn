@@ -120,7 +120,7 @@ class Configuration():
         value = macros_substitute( value,self.configuration )
 
         # special case: jobname can be set only once
-        if key=="jobname" and self.configuration["jobname"] is not "spawn":
+        if key=="jobname" and self.configuration["jobname"] != "spawn":
           print("Job name can be set only once, current: "+self.configuration["jobname"])
           sys.exit(1)
         # special case: output dir needs to be set immediately
@@ -147,6 +147,10 @@ class Configuration():
             testing=self.configuration["testing"])
 
 if __name__ == "__main__":
+  if sys.version_info[0]<3:
+    print("Please move to python3"); sys.exit(1)
+  if sys.version_info[1]<8:
+    print("This requires at least python 3.8"); sys.exit(1)
   args = sys.argv[1:]
   testing = False                      
   debug = False
