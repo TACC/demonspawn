@@ -15,8 +15,9 @@ queue normal
 #
 # global settings for this run
 #
-let rootdir = /work2/00434/eijkhout/demonspawn
-let pawdir = /work2/00434/eijkhout/mpi-regression/paw/installation_git_%[system]_%[modules]
+jobname paw
+rootdir /work2/00434/eijkhout/demonspawn
+pawdir /work2/00434/eijkhout/mpi-regression/paw/installation_git_%[system]_%[modules]
 
 #
 # point-to-point tests

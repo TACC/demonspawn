@@ -15,24 +15,23 @@ queue development
 #
 #  describe this run
 #
-let rootdir = /work2/00434/eijkhout/demonspawn
-# slurm scripts
-scriptdir %[rootdir]/paw.scripts.%[system].%[date]
-# all output
-outputdir %[rootdir]/paw.output.%[system].%[date]
-# number of nodes
-nodes 2
-# processes per node
-ppn 1
+jobname paw-p2p
+rootdir %[pwd]
+outputdir %[rootdir]/spawn-%[jobname]-%[date]
+
 # verbose output
 trace 1
-# data for regression
-regression grep:Maximum field:4 take:avg
 
 #
 # p2p benchmark
 #
-let pawdir  = /work2/00434/eijkhout/mpi-regression/paw/installation_git_%[system]_%[modules]
+
 # number of nodes
+nodes 2
+# processes per node
+ppn 1
+
+pawdir /work2/00434/eijkhout/mpi-regression/paw/installation_git_%[system]_%[modules]
+regression grep:BW field:4 take:avg
 suite name:paw-mpi-p2p type:mpi dir:%[pawdir] p2p_*
 
