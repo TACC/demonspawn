@@ -32,5 +32,6 @@ nodes 2
 ppn 1
 
 pawdir /work2/00434/eijkhout/mpi-regression/paw/installation_git_%[system]_%[modules]
+regression grep:BW field:4 take:avg
 suite name:paw-mpi-p2p type:mpi dir:%[pawdir] p2p_*
 

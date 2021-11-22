@@ -45,7 +45,7 @@ class SpawnFiles():
       except:
         raise Exception(f"Could not make dir <<{dir}>>") 
       self.outputdir = dir
-    def ensurefiledir(self,dir,subdir):
+    def ensurefiledir(self,dir=None,subdir=None):
       if dir:
         filedir = dir
       else:
@@ -108,7 +108,6 @@ class Job():
         self.benchmark = "bench"
         self.trace = False
         self.logfile,_,_ = SpawnFiles().open("logfile")
-        self.scriptdir = "."
         self.regressionfile = None
         self.set_has_not_been_submitted()
 
@@ -126,16 +125,16 @@ class Job():
         script_file_handle,scriptdir,script_file_name \
           = SpawnFiles().open_new( script_file_name,subdir="scripts" )
         self.script_file_name = f"{scriptdir}/{script_file_name}"
-        output_file_name = f"{self.benchmark}-{node_spec}.output"
-        self.output_file,self.outputdir,_ \
-          = SpawnFiles().open_new( output_file_name,subdir="output" )
-        self.slurm_output_file_name = f"{self.outputdir}/{self.name()}.out%j"
+        # we are assuming that the files wind up in a unique directory
+        # so we don't need the job number in the name
+        self.outputdir = SpawnFiles().ensurefiledir(subdir="output")
+        self.slurm_output_file_name = f"{self.outputdir}/{self.name()}.out" # .out%j"
         script_file_handle.write(self.script_contents()+"\n")
         script_file_handle.close()
         self.logfile.write(f"""
 %%%%%%%%%%%%%%%%
 {self.count:3}: script={self.script_file_name}
- logout={output_file_name}
+ logout={self.slurm_output_file_name}
 """)
         if self.trace:
             print(f"Written job file <<{self.script_file_name}>> for <<{self.benchmark}>>")
@@ -165,8 +164,7 @@ if [ ! -f "$program" ] ; then
   echo "Program does not exist: $program"
   exit 1
 fi
-output={self.outputdir}/{self.name()}.slurm-out
-{self.runner}$program | tee $output
+{self.runner}$program
 """
     def name(self):
         return re.sub(" ","_",
@@ -222,8 +220,8 @@ output={self.outputdir}/{self.name()}.slurm-out
                   self.status = "POST" # done running
                   if self.regression:
                     if self.logfile:
-                      self.logfile.write(f"Doing regression <<{self.regression}>> on job {self.name()} to <<{self.output_file_name}>> and general regression file\n")
-                    self.do_regression()
+                      self.logfile.write(f"Doing regression <<{self.regression}>> on job {self.name()} to <<{self.slurm_output_file_name}>> and general regression file\n")
+                    self.do_regression(self.slurm_output_file_name)
                     self.logfile.write(f".. done regression\n")
     def is_running(self):
         return self.jobid!="1" and self.status=="R"
@@ -239,8 +237,8 @@ output={self.outputdir}/{self.name()}.slurm-out
         for status in io.TextIOWrapper(p.stdout, encoding="utf-8"):
             status = status.strip()
         return status
-    def do_regression(self):
-        print(f"Doing regression on {self.output_file_name}")
+    def do_regression(self,filename):
+        print(f"Doing regression on {filename}")
         rtest = {}
         for kv in self.regression.split():
             if not re.search(":",kv):
@@ -251,7 +249,7 @@ output={self.outputdir}/{self.name()}.slurm-out
         if "grep" in rtest.keys():
           greptext = re.sub("_"," ",rtest["grep"])
           try:
-            with open(self.output_file_name,"r") as output_file:
+            with open(filename,"r") as output_file:
               found = False
               for line in output_file:
                 line = line.strip()
@@ -436,17 +434,14 @@ class TestSuite():
   def __init__(self,suite,configuration):
     ## this needs to come from the `suite' list
     self.logfile        = SpawnFiles().get("logfile")
-    self.regressionfile = configuration.get("regressionfile")
-    self.scriptdir      = configuration.get("scriptdir")
-    self.outputdir      = configuration.get("outputdir")
     self.starttime      = configuration.get("date","00-00-00")
 
     self.name = configuration.pop("name","testsuite")
+    self.regression = configuration.get("regression",False)
 
     self.configuration = configuration
     self.testing = self.configuration.get("testing",False)
     self.modules = self.configuration.get( "modules","intel" )
-    self.regression = self.configuration.get("regression",False)
     print(f"Test suite with modules {self.modules}")
 
     self.nodes_cores = nodes_cores_values(self.configuration)
@@ -484,7 +479,9 @@ suites: {self.suites}
       for suite in self.suites:
           suitename = suite["name"]
           print(f"Suitename: {suitename}")
-          regressionfile,_,_ = SpawnFiles().open("regress",self.name,subdir=suitename)
+          if self.regression:
+            regressionfile,_,_ \
+              = SpawnFiles().open_new( f"regression-{suitename}.txt" )
           self.logfile.write(f"Test suite {self.name} run at {self.starttime}\n")
           self.logfile.write(str(self))
           for benchmark in suite["apps"]:
@@ -493,7 +490,7 @@ suites: {self.suites}
               for nodes,cores in self.nodes_cores:
                 print(".. on %d nodes" % nodes)
                 self.logfile.write(f".. N={nodes} cores={cores}")
-                job = Job(benchmark=benchmark,outputdir=self.outputdir,
+                job = Job(benchmark=benchmark,
                           nodes=nodes,cores=cores,
                           queue=self.configuration["queue"],
                           programdir=suite["dir"],
@@ -507,4 +504,3 @@ suites: {self.suites}
                 count += 1
       if submit:
         queues.wait_for_jobs()
-
