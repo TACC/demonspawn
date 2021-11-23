@@ -255,8 +255,13 @@ fi
                 line = line.strip()
                 if re.search(greptext,line):
                   found = True
-                  self.logfile.write(f"File: {self.name()}\n{line}\n")
-                  self.regressionfile.write(f"File: {self.name()}\n{line}\n")
+                  if "field" in rtest.keys():
+                    fields = line.split(); field = fields[ int(rtest["field"]) ]
+                    self.logfile.write(f"File: {self.name()}\n{field}\n")
+                    self.regressionfile.write(f"File: {self.name()}\n{field}\n")
+                  else:
+                    self.logfile.write(f"File: {self.name()}\n{line}\n")
+                    self.regressionfile.write(f"File: {self.name()}\n{line}\n")
               if not found:
                 self.logfile.write\
                   (f"{self.name()}: regression failed to find <<{greptext}>>\n")
