@@ -1,5 +1,5 @@
 # DemonSpawn
-DemonSpawn is a tool for quickly firing off a large number of regression tests. 
+DemonSpawn is a tool for quickly firing off a large number of SLURM jobs. 
 
 This can be used
 
@@ -11,28 +11,33 @@ Basic invocation:
 
     python3 spawn.py configurationfile
     
-Currently it requires python at least 3.8.
+Currently it requires python version 3.8 or higher.
 
 Copyright Victor Eijkhout 2020-2021
 
 ## Quick example
 
-Example:
+Example configuration file:
 
     # slurm script parameters
     system frontera
     user eijkhout
     account A-ccsc
     modules intel/18.0.2 impi/18.0.2
+    
     # set up directories
     bench mybench
     outputdir = /your/dir/ectory/spawn-%[bench]-%[data]
-    # point-to-point setup
+    
+    # point-to-point benchmark setup
+    queue development
     nodes 2
     ppn 1
     # program to run
     suite name:paw-mpi type:mpi dir:/home/me/paw p2p_*
-    # collective setup
+    
+    # collective benchmark setup
+    queue normal
     nodes 4,8,12,16
     ppn 1,5,10
     # program to run
@@ -69,21 +74,7 @@ Some macros have special meaning for your SLURM script:
 * `system` is set to the current hostname. If you specify this macro, it is enforced that this run can only happen on that particular system.
 * `account` is used in your slurm script
 * `modules` is the list of modules that is loaded at the beginning of your slurm script.
-
-## Directory macros
-
-In order to create a unique output directory, the following macros are useful:
-
-* `pwd` is set to the current working directory where you are running python on the configuration file
-* `date` is set to current date-time. 
-
-It is recommended that you define this macro:
-
-* `outputdir` is the directory in which subdirectories `scripts`, `output`, `regression` are created. If you do not specify this, the current directory will be used.
-
-For example:
-
-    outputdir %[pwd]/spawn-mycode-%[date]
+* `queue` is the queue name where the slurm script will be submitted. Queue definitions are currently hard-wired.
 
 ## Scaling setup
 
@@ -112,6 +103,21 @@ The available keys are:
 
 After these pairs, the programs are specified with wildcards but no path.
 
+## Directory macros
+
+In order to create a unique output directory, the following macros are useful:
+
+* `pwd` is set to the current working directory where you are running python on the configuration file
+* `date` is set to current date-time. 
+
+It is recommended that you define this macro:
+
+* `outputdir` is the directory in which subdirectories `scripts`, `output`, `regression` are created. If you do not specify this, the current directory will be used.
+
+For example:
+
+    outputdir %[pwd]/spawn-mycode-%[date]
+
 ## Regression
 
 It is easy to run a regression on all output files of a suite.
@@ -122,6 +128,8 @@ This will grep through each result file in the suite, leaving the result in
 
     %[outputdir]/regression-%[suitename].txt
     
-    
+Further options:
+
+* `field:5` extract only the 5-th whitespace-separated field
 
 
