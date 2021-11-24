@@ -350,7 +350,9 @@ def running_jobids(qname,user):
 
 class Queue():
     def __init__(self,name,limit=1):
-        self.name = name; self.limit = limit; self.jobs = []
+        self.name = name; self.jobs = []; self.set_limit(limit)
+    def set_limit(self,limit):
+        self.limit = limit
     def enqueue(self,j):
         self.jobs.append(j)
         qrunning = running_jobids(self.name,j.user)
@@ -386,6 +388,8 @@ class Queues():
         self.logprinter = kwargs.get( "logprinter",lambda x:print("log message:",x) )
     def add_queue(self,name,limit):
         self.queues[name] = Queue(name,limit)
+    def set_limit(self,name,limit):
+        self.queues[name].set_limit(limit)
     def enqueue(self,j):
         qname = j.queue
         if not qname in self.queues.keys():
@@ -481,6 +485,13 @@ suites: {self.suites}
       queues.add_queue("development",1)
       queues.add_queue("normal",10)
       queues.add_queue("rtx",4)
+      queuespec = self.configuration["queue"].split()
+      jobqueue = queuespec[0]
+      if len(queuespec)>1:
+        queuespec = queuespec[1:]      
+        if limit:=re.match(r'limit:([0-9]+)',queuespec[0]):
+          limit = int( limit.groups()[0] )
+          queues.set_limit(jobqueue,limit)
       for suite in self.suites:
           suitename = suite["name"]
           print(f"Suitename: {suitename}")
@@ -497,7 +508,7 @@ suites: {self.suites}
                 self.logfile.write(f".. N={nodes} cores={cores}")
                 job = Job(benchmark=benchmark,
                           nodes=nodes,cores=cores,
-                          queue=self.configuration["queue"],
+                          queue=jobqueue,
                           programdir=suite["dir"],
                           modules=self.modules,
                           regression=self.regression,regressionfile=regressionfile,

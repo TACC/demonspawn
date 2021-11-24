@@ -20,7 +20,7 @@ import time
 from jobsuite import *
 
 keyword_command = [ "nodes", "ppn", "suite", ]
-keyword_reserved = [ "system", "user", "modules", "account", "queue", ]
+keyword_reserved = [ "system", "user", "modules", "account", "queue", "date", ]
 
 def read_batch_template(filename):
   """
@@ -97,6 +97,7 @@ class Configuration():
     self.configuration["debug"]     = kwargs.get("debug",False)
     self.configuration["system"]    = os.environ["TACC_SYSTEM"]
     self.configuration["date"]      = kwargs.get("date","00-00-00")
+    self.configuration["mpi"]       = os.environ["TACC_FAMILY_MPI"]
     self.configuration["pwd"]       = os.getcwd()
   def parse(self,filename,**kwargs):
     suites = []
