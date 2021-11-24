@@ -107,7 +107,8 @@ After these pairs, the programs are specified with wildcards but no path.
 In order to create a unique output directory, the following macros are useful:
 
 * `pwd` is set to the current working directory where you are running python on the configuration file
-* `date` is set to current date-time. 
+* `date` is set to current date-time.
+* `mpi` is set to `LMOD_FAMILY_COMPILER`.
 
 It is recommended that you define this macro:
 
@@ -115,7 +116,7 @@ It is recommended that you define this macro:
 
 For example:
 
-    outputdir %[pwd]/spawn-mycode-%[date]
+    outputdir %[pwd]/spawn-mycode-%[mpi]-%[date]
 
 ## Regression
 
