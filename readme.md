@@ -11,9 +11,14 @@ Basic invocation:
 
     python3 spawn.py configurationfile
     
-Currently it requires python version 3.8 or higher.
-
 Copyright Victor Eijkhout 2020-2021
+
+## Limitations
+
+* Currently the software requires python version 3.8 or higher.
+* The `system` keyword only works at TACC
+* The `mpi` keyword depends on Lmod.
+
 
 ## Quick example
 

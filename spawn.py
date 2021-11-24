@@ -95,9 +95,15 @@ class Configuration():
     self.configuration["testing"]   = kwargs.get("testing",False)
     self.configuration["submit"]    = kwargs.get("submit",True)
     self.configuration["debug"]     = kwargs.get("debug",False)
-    self.configuration["system"]    = os.environ["TACC_SYSTEM"]
     self.configuration["date"]      = kwargs.get("date","00-00-00")
-    self.configuration["mpi"]       = os.environ["TACC_FAMILY_MPI"]
+    try :
+      self.configuration["system"]    = os.environ["TACC_SYSTEM"]
+    except:
+      self.configuration["system"]    = None
+    try :
+      self.configuration["mpi"]       = os.environ["LMOD_FAMILY_MPI"]
+    except:
+      self.configuration["mpi"]       = "mpich"
     self.configuration["pwd"]       = os.getcwd()
   def parse(self,filename,**kwargs):
     suites = []
