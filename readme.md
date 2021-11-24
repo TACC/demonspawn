@@ -26,8 +26,7 @@ Example configuration file:
     modules intel/18.0.2 impi/18.0.2
     
     # set up directories
-    bench mybench
-    outputdir = /your/dir/ectory/spawn-%[bench]-%[data]
+    outputdir = /your/dir/ectory/mybenchmark-%[date]
     
     # point-to-point benchmark setup
     queue development
@@ -74,7 +73,7 @@ Some macros have special meaning for your SLURM script:
 * `system` is set to the current hostname. If you specify this macro, it is enforced that this run can only happen on that particular system.
 * `account` is used in your slurm script
 * `modules` is the list of modules that is loaded at the beginning of your slurm script.
-* `queue` is the queue name where the slurm script will be submitted. Queue definitions are currently hard-wired.
+* `queue` is the queue name where the slurm jobs will be submitted. The demonspawn manager will make sure that queue limits are not violated. Queue definitions are currently hard-wired.
 
 ## Scaling setup
 
