@@ -73,7 +73,9 @@ Some macros have special meaning for your SLURM script:
 * `system` is set to the current hostname. If you specify this macro, it is enforced that this run can only happen on that particular system.
 * `account` is used in your slurm script
 * `modules` is the list of modules that is loaded at the beginning of your slurm script.
-* `queue` is the queue name where the slurm jobs will be submitted. The demonspawn manager will make sure that queue limits are not violated. Queue definitions are currently hard-wired.
+* `queue` is the queue name where the slurm jobs will be submitted. The demonspawn manager will make sure that queue limits are not violated. Queue definitions are currently hard-wired. The queue name has optional limits on the number of simultaneous jobs:
+
+    `queue somequeue limit:2`
 
 ## Scaling setup
 
