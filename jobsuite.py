@@ -423,7 +423,7 @@ class Queues():
                           [ q.ids() for q in self.queues.values() ] )
             #print("All ids: <<{}>>".format(ids))
             id_string = ",".join( ids )
-            print("Getting status for",id_string)
+            if self.debug: print("Getting status for",id_string)
             #
             # get the status for all jobs. some of them may not yet be running, or finished
             #
