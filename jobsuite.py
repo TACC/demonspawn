@@ -39,6 +39,7 @@ class SpawnFiles():
     def __init__(self):
       self.files = {}
       self.outputdir = None
+      self.debug = False
     def setoutputdir(self,dir):
       try:
         os.mkdir(dir)
@@ -55,16 +56,17 @@ class SpawnFiles():
       if subdir: filedir=f"{filedir}/{subdir}"
       try :
         os.mkdir( filedir )
-        print(f"Making dir <<{filedir}>>")
+        if self.debug: print(f"Making dir <<{filedir}>>")
       except FileExistsError :
-        print(f"Directory <<{filedir}>> already exists"); pass
+        if self.debug: print(f"Directory <<{filedir}>> already exists")
+        pass
       return filedir
     def open(self,fil,key=None,dir=None,subdir=None,new=False):
       print(f"Open <{fil}>> at <<{dir}/{subdir}>> new: <<{new}>>")
       filedir = self.ensurefiledir(dir,subdir)
       filename = fil
       if not key: key = filename
-      print(f"Opening dir={filedir} file={filename} key={key}")
+      if self.debug: print(f"Opening dir={filedir} file={filename} key={key}")
       filename = filename+".txt"
       fullname = f"{filedir}/{filename}"
       if key not in self.files.keys():
@@ -76,7 +78,7 @@ class SpawnFiles():
       else:
         return self.files[key],filedir,filename
     def open_new(self,fil,key=None,dir=None,subdir=None):
-      print(f"Open new <{fil}>> at <<{dir}/{subdir}>>")
+      if self.debug: print(f"Open new <{fil}>> at <<{dir}/{subdir}>>")
       return self.open(fil,key=key,dir=dir,subdir=subdir,new=True)
     def set(self,id,fil,dir=None):
       raise Exception("do not call set method")
@@ -86,7 +88,7 @@ class SpawnFiles():
       return self.files[id]
     def __del__(self):
       for f in self.files.keys():
-        print(f"closing file: {f}")
+        if self.debug: print(f"closing file: {f}")
         self.files[f].close()
   def __new__(cls):
     if not SpawnFiles.instance:
@@ -350,7 +352,7 @@ def running_jobids(qname,user):
 
 class Queue():
     def __init__(self,name,limit=1):
-        self.name = name; self.jobs = []; self.set_limit(limit)
+        self.name = name; self.jobs = []; self.set_limit(limit); self.debug = False
     def set_limit(self,limit):
         self.limit = limit
     def enqueue(self,j):
@@ -370,7 +372,8 @@ class Queue():
         nrunning = sum( [ 1 for j in self.jobs if j.is_running() ] ) \
                    + sum( [ 1 for j in self.jobs if j.is_pending() ] )
         nslots = self.limit-nrunning
-        print(f"Queue {self.name} has #in queue={nrunning}, space for: {nslots}")
+        if self.debug: 
+          print(f"Queue {self.name} has #in queue={nrunning}, space for: {nslots}")
         for j in self.jobs:
             if nslots==0: break
             if not j.get_has_been_submitted():
@@ -382,62 +385,71 @@ class Queue():
         return [ j.jobid for j in self.jobs if j.jobid!="1" ]
 
 class Queues():
-    def __init__(self,**kwargs):
-        self.queues = {}
-        self.testing = kwargs.get("testing",False)
-        self.logprinter = kwargs.get( "logprinter",lambda x:print("log message:",x) )
-    def add_queue(self,name,limit):
-        self.queues[name] = Queue(name,limit)
-    def set_limit(self,name,limit):
-        self.queues[name].set_limit(limit)
-    def enqueue(self,j):
-        qname = j.queue
-        if not qname in self.queues.keys():
-            raise Exception("No such queue: {}".format(qname))
-        else:
-            queue = self.queues[qname]
-            if self.testing:
-                print("test run: no actual submit")
+    instance = None
+    class __queues():
+        def __init__(self,**kwargs):
+            self.queues = {}
+            self.testing = kwargs.get("testing",False)
+            self.debug = False
+            self.logprinter = kwargs.get( "logprinter",lambda x:print("log message:",x) )
+        def add_queue(self,name,limit):
+            self.queues[name] = Queue(name,limit)
+        def set_limit(self,name,limit):
+            self.queues[name].set_limit(limit)
+        def enqueue(self,j):
+            qname = j.queue
+            if not qname in self.queues.keys():
+                raise Exception("No such queue: {}".format(qname))
             else:
-                jobid = queue.enqueue(j)
-    def wait_for_jobs(self):
-        if self.testing:
-            print("Done, since this was only a test")
-        else:
-            while True:
-                njobs_to_go = self.update_jobs_status()
-                if njobs_to_go==0: break
-                time.sleep(1)
-            self.logprinter("Done all jobs")
-    def update_jobs_status(self):
-        #
-        # ids of all jobs; ids may be 1 if not started, or valid but already finished
-        #
-        ids = reduce( lambda x,y:x+y,
-                      [ q.ids() for q in self.queues.values() ] )
-        #print("All ids: <<{}>>".format(ids))
-        id_string = ",".join( ids )
-        print("Getting status for",id_string)
-        #
-        # get the status for all jobs. some of them may not yet be running, or finished
-        #
-        p = sp.Popen(["squeue","-j",id_string,"-h","-o","%A %t"],stdout=sp.PIPE)
-        status_dict = { id:"NS" for id in ids }; running = []; pending = []
-        for status in io.TextIOWrapper(p.stdout, encoding="utf-8"):
-            id,stat = status.strip().split()
-            print("Job {} status {}".format(id,stat))
-            status_dict[id] = stat
-            if stat=="R":
-                running.append(id)
-            elif stat=="PD":
-                pending.append(id)
-        for q in self.queues.values():
-            q.status_update(status_dict)
-        nrunning = len(running); npending = len(pending)
-        ntogo = sum( [ q.how_many_unfinished() for q in self.queues.values() ] )
-        print("Jobs unfinished: {}, running: {}, pending in queue: {}".\
-              format(ntogo,len(running),len(pending)))
-        return ntogo
+                queue = self.queues[qname]
+                if self.testing:
+                    print("test run: no actual submit")
+                else:
+                    jobid = queue.enqueue(j)
+        def wait_for_jobs(self):
+            if self.testing:
+                print("Done, since this was only a test")
+            else:
+                while True:
+                    njobs_to_go = self.update_jobs_status()
+                    if njobs_to_go==0: break
+                    time.sleep(1)
+                self.logprinter("Done all jobs")
+        def update_jobs_status(self):
+            #
+            # ids of all jobs; ids may be 1 if not started, or valid but already finished
+            #
+            ids = reduce( lambda x,y:x+y,
+                          [ q.ids() for q in self.queues.values() ] )
+            #print("All ids: <<{}>>".format(ids))
+            id_string = ",".join( ids )
+            print("Getting status for",id_string)
+            #
+            # get the status for all jobs. some of them may not yet be running, or finished
+            #
+            p = sp.Popen(["squeue","-j",id_string,"-h","-o","%A %t"],stdout=sp.PIPE)
+            status_dict = { id:"NS" for id in ids }; running = []; pending = []
+            for status in io.TextIOWrapper(p.stdout, encoding="utf-8"):
+                id,stat = status.strip().split()
+                if self.debug: print("Job {} status {}".format(id,stat))
+                status_dict[id] = stat
+                if stat=="R":
+                    running.append(id)
+                elif stat=="PD":
+                    pending.append(id)
+            for q in self.queues.values():
+                q.status_update(status_dict)
+            nrunning = len(running); npending = len(pending)
+            ntogo = sum( [ q.how_many_unfinished() for q in self.queues.values() ] )
+            print("Jobs unfinished: {}, running: {}, pending in queue: {}".\
+                  format(ntogo,len(running),len(pending)))
+            return ntogo
+    def __new__(cls):
+      if not Queues.instance:
+        Queues.instance = Queues.__queues()
+      return Queues.instance
+    def __getattr__(self,attr):
+      return self.instance.__getattr__(attr)
 
 class TestSuite():
   def __init__(self,suite,configuration):
@@ -480,18 +492,13 @@ suites: {self.suites}
       count = 1
       jobs = []; jobids = []
       # should queues be global?
-      queues = Queues(testing=testing,
-                      logprinter=lambda x:self.logfile.write(x+"\n"))
-      queues.add_queue("development",1)
-      queues.add_queue("normal",10)
-      queues.add_queue("rtx",4)
       queuespec = self.configuration["queue"].split()
       jobqueue = queuespec[0]
       if len(queuespec)>1:
         queuespec = queuespec[1:]      
         if limit:=re.match(r'limit:([0-9]+)',queuespec[0]):
           limit = int( limit.groups()[0] )
-          queues.set_limit(jobqueue,limit)
+          Queues().set_limit(jobqueue,limit)
       for suite in self.suites:
           suitename = suite["name"]
           print(f"Suitename: {suitename}")
@@ -516,7 +523,7 @@ suites: {self.suites}
                           account=self.configuration["account"],user=self.configuration["user"],
                           count=count,trace=True)
                 if submit:
-                  queues.enqueue(job)
+                  Queues().enqueue(job)
                 count += 1
       if submit:
-        queues.wait_for_jobs()
+        Queues().wait_for_jobs()

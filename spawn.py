@@ -179,6 +179,7 @@ if __name__ == "__main__":
       testing = True; submit = False
     elif args[0] in [ "-d", "--debug" ]:
       debug = True
+      SpawnFiles().debug = True
     args = args[1:]
   now = datetime.datetime.now()
   starttime = f"{now.year}{now.month}{now.day}-{now.hour}.{now.minute}.{now.second}"
@@ -187,6 +188,11 @@ if __name__ == "__main__":
   configuration = Configuration\
                   (jobname=jobname,date=starttime,debug=debug,submit=submit,testing=testing)
   SpawnFiles().open_new(f"logfile-{jobname}-{starttime}",key="logfile",dir=".")
+  queues = Queues()
+  queues.testing = testing
+  queues.add_queue("development",1)
+  queues.add_queue("normal",10)
+  queues.add_queue("rtx",4)
   configuration.parse(args[0])
 
   # now activate all the suites
