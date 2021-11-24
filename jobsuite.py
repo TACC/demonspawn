@@ -108,7 +108,7 @@ class Job():
         self.account = "MyAccount"
         self.runner = "./"
         self.benchmark = "bench"
-        self.trace = False
+        self.trace = False; self.debug = False
         self.logfile,_,_ = SpawnFiles().open("logfile")
         self.regressionfile = None
         self.set_has_not_been_submitted()
@@ -186,8 +186,7 @@ fi
         submitted = False
         for line in io.TextIOWrapper(p.stdout, encoding="utf-8"):
             line = line.strip()
-            print(line)
-            if self.trace:
+            if self.trace or self.debug:
                 print( line )
             self.logfile.write(line+"\n")
             submitted = re.search("(Submitted.* )([0-9]+)",line)
