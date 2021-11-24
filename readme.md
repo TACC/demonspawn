@@ -26,8 +26,7 @@ Example configuration file:
     modules intel/18.0.2 impi/18.0.2
     
     # set up directories
-    bench mybench
-    outputdir = /your/dir/ectory/spawn-%[bench]-%[data]
+    outputdir = /your/dir/ectory/mybenchmark-%[date]
     
     # point-to-point benchmark setup
     queue development
@@ -74,7 +73,9 @@ Some macros have special meaning for your SLURM script:
 * `system` is set to the current hostname. If you specify this macro, it is enforced that this run can only happen on that particular system.
 * `account` is used in your slurm script
 * `modules` is the list of modules that is loaded at the beginning of your slurm script.
-* `queue` is the queue name where the slurm script will be submitted. Queue definitions are currently hard-wired.
+* `queue` is the queue name where the slurm jobs will be submitted. The demonspawn manager will make sure that queue limits are not violated. Queue definitions are currently hard-wired. The queue name has optional limits on the number of simultaneous jobs:
+
+    `queue somequeue limit:2`
 
 ## Scaling setup
 
@@ -108,7 +109,8 @@ After these pairs, the programs are specified with wildcards but no path.
 In order to create a unique output directory, the following macros are useful:
 
 * `pwd` is set to the current working directory where you are running python on the configuration file
-* `date` is set to current date-time. 
+* `date` is set to current date-time.
+* `mpi` is set to `LMOD_FAMILY_COMPILER`.
 
 It is recommended that you define this macro:
 
@@ -116,7 +118,7 @@ It is recommended that you define this macro:
 
 For example:
 
-    outputdir %[pwd]/spawn-mycode-%[date]
+    outputdir %[pwd]/spawn-mycode-%[mpi]-%[date]
 
 ## Regression
 
