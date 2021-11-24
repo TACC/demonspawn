@@ -9,8 +9,13 @@ This can be used
 
 Basic invocation:
 
-    python3 spawn.py configurationfile
-    
+    python3 spawn.py [ -d ] configurationfile
+
+Flags:
+
+* `-d` : lots of debug output
+
+
 Copyright Victor Eijkhout 2020-2021
 
 ## Limitations
