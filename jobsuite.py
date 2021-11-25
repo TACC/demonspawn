@@ -102,7 +102,7 @@ class Job():
         #default values to be overwritten later
         self.suite = "paw"
         self.queue = "normal"
-        self.nodes = 1; self.cores = 10
+        self.nodes = 1; self.cores = 10; self.threads = 0
         self.runtime = "00:05:00"
         self.user = "nosuchuser"
         self.account = "MyAccount"
@@ -121,7 +121,10 @@ class Job():
           self.__dict__[key] = val
         tracestring = f"Creating job <<{self.name()}>> with <<{tracestring}>>"
 
-        node_spec = f"N{self.nodes}-n{self.cores}"
+        if self.threads>0: 
+          node_spec = f"N{self.nodes}-n{self.cores}-t{self.threads}"
+        else:
+          node_spec = f"N{self.nodes}-n{self.cores}"
         script_file_name = f"{self.benchmark}-{node_spec}.script"
         print(f"script file name: {script_file_name}")
         script_file_handle,scriptdir,script_file_name \
@@ -146,6 +149,18 @@ class Job():
         if self.logfile: self.logfile.write(tracestring+"\n")
     def script_contents(self):
         bench_program = self.runner+self.programdir+"/"+self.benchmark
+        if self.modules!="default":
+          moduleset = f"""## custom modules
+module reset
+module load {self.modules}
+"""
+        else: moduleset = ""
+        if self.threads>0:
+          threadset = f"""## OpenMP thread specification
+export OMP_NUM_THREADS={self.threads}
+export OMP_PROC_BIND=true
+"""
+        else: threadset = ""
         return  \
 f"""#!/bin/bash
 #SBATCH -J {self.name()}
@@ -157,9 +172,7 @@ f"""#!/bin/bash
 #SBATCH -n {self.cores}
 #SBATCH -A {self.account}
 
-module reset
-module load {self.modules}
-
+{moduleset}{threadset}
 cd {self.outputdir}
 program={self.programdir}/{self.benchmark}
 if [ ! -f "$program" ] ; then 
@@ -174,11 +187,11 @@ fi
                              re.sub(".*/","",self.benchmark) \
                              +"-"+ \
                              module_string(self.modules) \
-                             +"-N"+str(self.nodes)+"-n"+str(self.cores) \
+                             +"-N"+str(self.nodes)+"-n"+str(self.cores)+"-t"+str(self.threads) \
                          ) \
                   )
     def __str__(self):
-        return f"{self.benchmark} N={self.nodes} cores={self.cores} regression={self.regression}"
+        return f"{self.benchmark} N={self.nodes} cores={self.cores} threads={self.threads} regression={self.regression}"
     def submit(self):
         if self.trace:
             print(f"sbatch: {self.script_file_name}")
@@ -300,7 +313,7 @@ def parse_suite(suite_option_list):
 ##
 ## return nodes and cores as list of equal length
 ##
-def nodes_cores_values(configuration):
+def nodes_cores_threads_values(configuration):
   def str2set(s):
     if re.search(",",s):
       s = [ int(p) for p in s.split(",") ]
@@ -309,35 +322,32 @@ def nodes_cores_values(configuration):
     else:
       s = [ int(s) ]
     return s    
-  nodes = configuration.get("nodes",None)
-  if nodes is None:
-    print("Node specification always needed"); raise Exception()
+  nodes = configuration.get("nodes","1")
   cores = configuration.get("cores",None)
   if not cores is None:
     print("Cores keyword not supported"); raise Exception()
-  ppn   = configuration.get("ppn",None)
-  if ppn is None:
-    print("ppn specification always needed"); raise Exception()
-  if cores is None and ppn is None:
-    print("Configuration needs to specify `cores' or `ppn'")
-    raise Exception()
+  ppn   = configuration.get("ppn","1")
+  threads = configuration.get("threads","0")
 
   ## nodes
-  print(f"nodes: {nodes}")
-  nodes = str2set(nodes)
-  print(f"=> nodes: {nodes}")
-  ## cores
-  print(f"ppn: {ppn}")
-  ppn = str2set(ppn)
-  print(f"=> ppn: {ppn}")
+  print(f"""Parallel configuration:
+nodes: {nodes}
+ppn: {ppn}
+threads: {threads}
+""")
+  nodes = str2set(nodes); ppn = str2set(ppn); threads = str2set(threads)
   
   ##
   ## node/core combinations
   ##
-  nodes_cores = [ [ [n,n*p] for n in nodes ] for p in ppn ] # this assumes ppn !
-  nodes_cores = [ np for sub in nodes_cores for np in sub ] 
-  print("nodes_cores:",nodes_cores)
-  return nodes_cores
+  nodes_cores_threads = [ [ [ [n,n*p,t] 
+                      for n in nodes ] 
+                    for p in ppn ] 
+                  for t in threads ]
+  nodes_cores_threads = [ n for npt in nodes_cores_threads
+                          for np in npt for n in np ] 
+  print("nodes_cores_threads:",nodes_cores_threads)
+  return nodes_cores_threads
 
 def running_jobids(qname,user):
     ids = []
@@ -457,14 +467,14 @@ class TestSuite():
     self.starttime      = configuration.get("date","00-00-00")
 
     self.name = configuration.pop("name","testsuite")
-    self.regression = configuration.get("regression",False)
+    self.regression = configuration.get( "regression",False )
 
     self.configuration = configuration
-    self.testing = self.configuration.get("testing",False)
-    self.modules = self.configuration.get( "modules","intel" )
+    self.testing = self.configuration.get( "testing",False )
+    self.modules = self.configuration.get( "modules",None )
     print(f"Test suite with modules {self.modules}")
 
-    self.nodes_cores = nodes_cores_values(self.configuration)
+    self.nodes_cores_threads = nodes_cores_threads_values(self.configuration)
     self.suites = [ parse_suite( suite ) ]
     print("{}".format(str(self)))
   def __str__(self):
@@ -472,7 +482,7 @@ class TestSuite():
 ################################################################
 Test suite: {self.name}
 modules: {self.modules}
-nodes/cores: {self.nodes_cores}
+nodes/cores/threads: {self.nodes_cores_threads}
 regression: {self.regression}
 suites: {self.suites}
 ################################################################
@@ -509,11 +519,11 @@ suites: {self.suites}
           for benchmark in suite["apps"]:
               print("="*16,f"{count}: submitting suite={suitename} benchmark={benchmark} at {datetime.datetime.now()}")
               self.logfile.write(f"{count}: submitting suite={suitename} benchmark={benchmark}")
-              for nodes,cores in self.nodes_cores:
+              for nodes,cores,threads in self.nodes_cores_threads:
                 print(".. on %d nodes" % nodes)
-                self.logfile.write(f".. N={nodes} cores={cores}")
+                self.logfile.write(f".. N={nodes} cores={cores} threads={threads}")
                 job = Job(benchmark=benchmark,
-                          nodes=nodes,cores=cores,
+                          nodes=nodes,cores=cores,threads=threads,
                           queue=jobqueue,
                           programdir=suite["dir"],
                           modules=self.modules,
