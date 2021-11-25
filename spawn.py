@@ -91,11 +91,13 @@ submitted as {}""".format(str(job),id))
 class Configuration():
   def __init__(self,**kwargs):
     self.configuration = {}
-    self.configuration["jobname"]   = kwargs.get("jobname")
+    self.configuration["jobname"]   = kwargs.get("jobname","spawn")
+    jobname = self.configuration["jobname"]
     self.configuration["testing"]   = kwargs.get("testing",False)
     self.configuration["submit"]    = kwargs.get("submit",True)
     self.configuration["debug"]     = kwargs.get("debug",False)
     self.configuration["date"]      = kwargs.get("date","00-00-00")
+    self.configuration["modules"]   = "default"
     try :
       self.configuration["system"]    = os.environ["TACC_SYSTEM"]
     except:
@@ -127,8 +129,8 @@ class Configuration():
         value = macros_substitute( value,self.configuration )
 
         # special case: jobname can be set only once
-        if key=="jobname" and self.configuration["jobname"] != "spawn":
-          print("Job name can be set only once, current: "+self.configuration["jobname"])
+        if key=="jobname" and jobname != "spawn":
+          print(f"Job name can be set only once, current: {jobname}")
           sys.exit(1)
         # special case: output dir needs to be set immediately
         elif key=="outputdir":
