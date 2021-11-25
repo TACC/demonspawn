@@ -7,23 +7,7 @@ This can be used
 * as a stress test doing parametrized runs of a single test
 * sanity test: after a system upgrade, see if everything still works.
 
-Basic invocation:
-
-    python3 spawn.py [ -d ] configurationfile
-
-Flags:
-
-* `-d` : lots of debug output
-
-
 Copyright Victor Eijkhout 2020-2021
-
-## Limitations
-
-* Currently the software requires python version 3.8 or higher.
-* The `system` keyword only works at TACC
-* The `mpi` keyword depends on Lmod.
-
 
 ## Quick example
 
@@ -54,6 +38,23 @@ Example configuration file:
     
 ## Introduction
 
+Demonspawn is a script that schedules SLURM job. Invocation:
+
+    python3 spawn.py [ -d ] [ -f ] configurationfile
+
+Flags:
+
+* `-d` : lots of debug output
+* `-f` : generate all script files, but do not submit
+
+The python script stays active until all submitted SLURM jobs have finished. This is strictly necessary only for handling regression tests after the jobs have finished, but the python script also handles proper closing of files. Thus it is a good idea to 
+
+    nohup python3 spawn.py myconf.txt &
+    
+Let's talk about the configuration file, which drives everything.
+
+### Macros
+
 The configuration file is completely macro based. A macro is defined in a line
 
     key value
@@ -68,13 +69,13 @@ Most keywords are a specifier, some have special meanings; see below.
 The keyword `suite` triggers the execution of a benchmark suite.
 Thus, you can have multiple suites in one configuration file. Each is invoked with the current value of all macros, so you can redefine macros between suite invocations. See the example above, which uses different node and process counts for the point-to-point and collective tests.
 
-A log file will be created in the current directory. It is identifiable by having the current date in the name.
+### File structure
 
-The python script stays active until all submitted SLURM jobs have finished. This is strictly necessary only for handling regression tests after the jobs have finished, but the python script also handles proper closing of files. Thus it is a good idea to 
+Demonspawn generates output:
 
-    nohup python3 spawn.py myconf.txt &
-    
-Let's talk about the configuration file, which drives everything.
+* A single log file for the full configuration will be created in the current directory. It is identifiable by having the current date in the name.
+* An output directory is generated based on the `outputdir` key. This will contain subdirectories `scripts` and `output` with the SLURM scripts and their standard out/err respectively.
+* If you do regression, the output directory will also contain a single regression file.
 
 ## SLURM macros
 
@@ -91,12 +92,15 @@ Some macros have special meaning for your SLURM script:
 
 For an MPI run you want to specify:
 
-* `nodes` : node count for the testsuite, unless the suite itself overrides this. This is either a single number or a colon-separated list, for scalability studies.
-* `ppn` : number of processes-per-node. Again, a single number or a colon-separated list.
+* `nodes` : node count for the testsuite, unless the suite itself overrides this. This is either a single number or a comma-separated list, for scalability studies.
+* `ppn` : number of processes-per-node. A single number or a comma-separated list.
+* `threads` : OpenMP thread count. Single number or comma-separated list. A negative value indicates a thread count such that the product of MPI processes and OpenMP threads equals `SLURM_CPUS_ON_NODE`. (A zero value means that no threading is used; this value is ignored.)
 
 ## Suite setup
 
-The actual test suite is specified by the keyword:
+The macro `jobname` is by default "`spawn`". It is used for the name of the logfile. You can only once define this in your configuration.
+
+On the other hand, you can have multiple test suites. A test suite is specified by the keyword:
 
 * `suite` : this is followed by a list of key:value pairs, followed by a list of programs, which can use wildcards
 
@@ -104,7 +108,9 @@ Example:
 
     suite name:paw-mpi-p2p type:mpi dir:%[pawdir] p2p_*
 
-This line defines the suite with the current value of all macros. You can redefine macros for the next suite in the same configuration file.
+This line defines the suite with the current value of all macros. 
+
+If there is more than one suite in a configuration file, each suite is fully finished before the next one is started. This is convenient if the suite runs a shell script that does a custom recompilation. You can redefine macros for the next suite in the same configuration file.
 
 The available keys are:
  
@@ -143,5 +149,11 @@ This will grep through each result file in the suite, leaving the result in
 Further options:
 
 * `field:5` extract only the 5-th whitespace-separated field
+
+## Limitations
+
+* Currently the software requires python version 3.8 or higher.
+* The `system` keyword only works at TACC
+* The `mpi` keyword depends on Lmod.
 
 
