@@ -121,11 +121,7 @@ class Job():
           self.__dict__[key] = val
         tracestring = f"Creating job <<{self.name()}>> with <<{tracestring}>>"
 
-        if self.threads>0: 
-          node_spec = f"N{self.nodes}-n{self.cores}-t{self.threads}"
-        else:
-          node_spec = f"N{self.nodes}-n{self.cores}"
-        script_file_name = f"{self.benchmark}-{node_spec}.script"
+        script_file_name = f"{self.name()}.script"
         print(f"script file name: {script_file_name}")
         script_file_handle,scriptdir,script_file_name \
           = SpawnFiles().open_new( script_file_name,subdir="scripts" )
@@ -155,9 +151,15 @@ module reset
 module load {self.modules}
 """
         else: moduleset = ""
-        if self.threads>0:
+        if self.threads!=0:
+          if self.threads>0:
+            threadcount = self.threads
+          else:
+            threadcount = "$(( SLURM_CPUS_ON_NODE / SLURM_NTASKS * SLURM_NNODES ))"
           threadset = f"""## OpenMP thread specification
-export OMP_NUM_THREADS={self.threads}
+threadcount={threadcount}
+if [ $threadcount -lt 1 ] ; then threadcount=1 ; fi
+export OMP_NUM_THREADS=$threadcount
 export OMP_PROC_BIND=true
 """
         else: threadset = ""
@@ -181,15 +183,16 @@ if [ ! -f "$program" ] ; then
 fi
 {self.runner}$program
 """
+    def nodespec(self):
+        if self.threads>0:
+          thread_spec = f"-t{self.threads}"
+        elif self.threads<0:
+          thread_spec = f"-tx"
+        else:
+          thread_spec = ""
+        return f"N{self.nodes}-n{self.cores}{thread_spec}"
     def name(self):
-        return re.sub(" ","_",
-                      re.sub("/","",
-                             re.sub(".*/","",self.benchmark) \
-                             +"-"+ \
-                             module_string(self.modules) \
-                             +"-N"+str(self.nodes)+"-n"+str(self.cores)+"-t"+str(self.threads) \
-                         ) \
-                  )
+        return f"{self.benchmark}-{self.nodespec()}"
     def __str__(self):
         return f"{self.benchmark} N={self.nodes} cores={self.cores} threads={self.threads} regression={self.regression}"
     def submit(self):
@@ -422,7 +425,7 @@ class Queues():
                 while True:
                     njobs_to_go = self.update_jobs_status()
                     if njobs_to_go==0: break
-                    time.sleep(1)
+                    time.sleep(10)
                 self.logprinter("Done all jobs")
         def update_jobs_status(self):
             #
