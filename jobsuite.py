@@ -67,7 +67,6 @@ class SpawnFiles():
       filename = fil
       if not key: key = filename
       if self.debug: print(f"Opening dir={filedir} file={filename} key={key}")
-      filename = filename+".txt"
       fullname = f"{filedir}/{filename}"
       if key not in self.files.keys():
         h = open(fullname,"w")
@@ -171,7 +170,7 @@ f"""#!/bin/bash
 #SBATCH -p {self.queue}
 #SBATCH -t {self.runtime}
 #SBATCH -N {self.nodes}
-#SBATCH -n {self.cores}
+#SBATCH --tasks-per-node {self.cores}
 #SBATCH -A {self.account}
 
 {moduleset}{threadset}
@@ -190,7 +189,7 @@ fi
           thread_spec = f"-tx"
         else:
           thread_spec = ""
-        return f"N{self.nodes}-n{self.cores}{thread_spec}"
+        return f"N{self.nodes}-ppn{self.cores}{thread_spec}"
     def name(self):
         return f"{self.benchmark}-{self.nodespec()}"
     def __str__(self):
@@ -273,7 +272,7 @@ fi
                 if re.search(greptext,line):
                   found = True
                   if "field" in rtest.keys():
-                    fields = line.split(); field = fields[ int(rtest["field"]) ]
+                    fields = line.split(); field = fields[ int(rtest["field"])-1 ]
                     self.logfile.write(f"File: {self.name()}\n{field}\n")
                     self.regressionfile.write(f"File: {self.name()}\n{field}\n")
                   else:
@@ -343,7 +342,7 @@ threads: {threads}
   ##
   ## node/core combinations
   ##
-  nodes_cores_threads = [ [ [ [n,n*p,t] 
+  nodes_cores_threads = [ [ [ [n,p,t] 
                       for n in nodes ] 
                     for p in ppn ] 
                   for t in threads ]
@@ -524,7 +523,7 @@ suites: {self.suites}
               self.logfile.write(f"{count}: submitting suite={suitename} benchmark={benchmark}")
               for nodes,cores,threads in self.nodes_cores_threads:
                 print(".. on %d nodes" % nodes)
-                self.logfile.write(f".. N={nodes} cores={cores} threads={threads}")
+                self.logfile.write(f".. N={nodes} ppn={cores} threads={threads}")
                 job = Job(benchmark=benchmark,
                           nodes=nodes,cores=cores,threads=threads,
                           queue=jobqueue,
