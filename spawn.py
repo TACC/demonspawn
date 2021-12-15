@@ -20,7 +20,10 @@ import time
 from jobsuite import *
 
 keyword_command = [ "nodes", "ppn", "suite", ]
-keyword_reserved = [ "system", "user", "modules", "account", "queue", "date", ]
+keyword_reserved = [ "system", "modules", 
+                     # slurm variables
+                     "account", "queue", "date", "time", "user",
+                   ]
 
 def read_batch_template(filename):
   """

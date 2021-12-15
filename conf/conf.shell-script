@@ -10,7 +10,6 @@ system frontera
 user eijkhout
 account A-ccsc
 queue small 1
-time 0:5:0
 
 #
 #  describe this run
@@ -27,7 +26,9 @@ nodes 1
 # processes per node
 ppn 1
 
-scriptdir %[pwd]/conf
+scriptdir %[pwd]/programs
 regression grep:BW field:4 take:avg
-suite name:script type:seq dir:%[scriptdir] example_script.sh
+
+time 0:5:0
+suite name:short type:seq dir:%[scriptdir] example_script.sh
 
