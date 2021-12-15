@@ -44,8 +44,8 @@ Demonspawn is a script that schedules SLURM job. Invocation:
 
 Flags:
 
-* `-d` : lots of debug output
-* `-f` : generate all script files, but do not submit
+* `-d --debug` : lots of debug output
+* `-f --filesonly` : generate all script files, but do not submit
 
 The python script stays active until all submitted SLURM jobs have finished. This is strictly necessary only for handling regression tests after the jobs have finished, but the python script also handles proper closing of files. Thus it is a good idea to 
 
@@ -148,7 +148,7 @@ This will grep through each result file in the suite, leaving the result in
     
 Further options:
 
-* `field:5` extract only the 5-th whitespace-separated field
+* `field:5` extract only the 5-th whitespace-separated field; this numbering is 1-based
 
 ## Limitations
 
