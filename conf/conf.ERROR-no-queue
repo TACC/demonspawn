@@ -1,0 +1,31 @@
+##
+## Demonspawn configuration 
+## for running a shell script
+##
+
+#
+# some global setup
+#
+system frontera
+user eijkhout
+account A-ccsc
+
+#
+#  describe this run
+#
+jobname script
+rootdir %[pwd]
+outputdir %[rootdir]/spawn-%[jobname]-%[date]
+
+# verbose output
+trace 1
+
+# number of nodes
+nodes 1
+# processes per node
+ppn 1
+
+scriptdir %[pwd]/conf
+regression grep:BW field:4 take:avg
+suite name:script type:seq dir:%[scriptdir] example_script.sh
+
