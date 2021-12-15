@@ -133,11 +133,11 @@ class Configuration():
             raise Exception(f"Job name can be set only once, current: {jobname}")
         # special case: queue
         elif key=="queue":
-            queue = value; q_lim = value.split()
-            if len(q_lim)==1:
-                Queues().add_queue(q_lim[0],1)
-            else:
-                Queues().add_queue(q_lim[0],q_lim[1])
+            queue = value; q_lim = value.split(); qname = q_lim[0]; qlimit = 1
+            if len(q_lim)>1:
+                qlimit = q_lim[1]
+            Queues().add_queue( qname,qlimit )
+            self.configuration[key] = qname
         # special case: output dir needs to be set immediately
         elif key=="outputdir":
           SpawnFiles().setoutputdir( value )

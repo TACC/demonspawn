@@ -365,7 +365,7 @@ class Queue():
     def __init__(self,name,limit=1):
         self.name = name; self.jobs = []; self.set_limit(limit); self.debug = False
     def set_limit(self,limit):
-        self.limit = limit
+        self.limit = int(limit)
     def enqueue(self,j):
         self.jobs.append(j)
         qrunning = running_jobids(self.name,j.user)
@@ -508,13 +508,7 @@ suites: {self.suites}
       count = 1
       jobs = []; jobids = []
       # should queues be global?
-      queuespec = self.configuration["queue"].split()
-      jobqueue = queuespec[0]
-      if len(queuespec)>1:
-        queuespec = queuespec[1:]      
-        if limit:=re.match(r'limit:([0-9]+)',queuespec[0]):
-          limit = int( limit.groups()[0] )
-          Queues().set_limit(jobqueue,limit)
+      jobqueue = self.configuration["queue"]
       for suite in self.suites:
           suitename = suite["name"]
           print(f"Suitename: {suitename}")
