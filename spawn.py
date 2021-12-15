@@ -108,7 +108,7 @@ class Configuration():
       self.configuration["mpi"]       = "mpich"
     self.configuration["pwd"]       = os.getcwd()
   def parse(self,filename,**kwargs):
-    suites = []
+    suites = []; queue = None
     with open(filename,"r") as configuration:
       for specline in configuration:
         specline = specline.strip()
@@ -130,8 +130,14 @@ class Configuration():
 
         # special case: jobname can be set only once
         if key=="jobname" and jobname != "spawn":
-          print(f"Job name can be set only once, current: {jobname}")
-          sys.exit(1)
+            raise Exception(f"Job name can be set only once, current: {jobname}")
+        # special case: queue
+        elif key=="queue":
+            queue = value; q_lim = value.split(); qname = q_lim[0]; qlimit = 1
+            if len(q_lim)>1:
+                qlimit = q_lim[1]
+            Queues().add_queue( qname,qlimit )
+            self.configuration[key] = qname
         # special case: output dir needs to be set immediately
         elif key=="outputdir":
           SpawnFiles().setoutputdir( value )
@@ -148,6 +154,8 @@ class Configuration():
         else:
           self.configuration[key] = value
         # ??? name,val = macro_parse(letline.groups()[1], configuration)
+    if not queue:
+      raise Exception("Did not find a queue specification")
     self.configuration["suites"] = suites
   def run(self):
     for s in self.configuration["suites"]:

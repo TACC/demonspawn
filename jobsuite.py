@@ -100,7 +100,7 @@ class Job():
     def __init__(self,**kwargs):
         #default values to be overwritten later
         self.suite = "paw"
-        self.queue = "normal"
+        self.queue = None
         self.nodes = 1; self.cores = 10; self.threads = 0
         self.runtime = "00:05:00"
         self.user = "nosuchuser"
@@ -365,7 +365,7 @@ class Queue():
     def __init__(self,name,limit=1):
         self.name = name; self.jobs = []; self.set_limit(limit); self.debug = False
     def set_limit(self,limit):
-        self.limit = limit
+        self.limit = int(limit)
     def enqueue(self,j):
         self.jobs.append(j)
         qrunning = running_jobids(self.name,j.user)
@@ -404,8 +404,13 @@ class Queues():
             self.debug = False
             self.logprinter = kwargs.get( "logprinter",lambda x:print("log message:",x) )
         def add_queue(self,name,limit):
-            self.queues[name] = Queue(name,limit)
+            if name in self.queues.keys():
+              self.queues[name].set_limit(limit)
+            else:
+              self.queues[name] = Queue(name,limit)
         def set_limit(self,name,limit):
+            if not name in self.queues.keys():
+                raise Exception(f"Can only set limit for existing queue, not: {name}")
             self.queues[name].set_limit(limit)
         def enqueue(self,j):
             qname = j.queue
@@ -503,13 +508,7 @@ suites: {self.suites}
       count = 1
       jobs = []; jobids = []
       # should queues be global?
-      queuespec = self.configuration["queue"].split()
-      jobqueue = queuespec[0]
-      if len(queuespec)>1:
-        queuespec = queuespec[1:]      
-        if limit:=re.match(r'limit:([0-9]+)',queuespec[0]):
-          limit = int( limit.groups()[0] )
-          Queues().set_limit(jobqueue,limit)
+      jobqueue = self.configuration["queue"]
       for suite in self.suites:
           suitename = suite["name"]
           print(f"Suitename: {suitename}")
