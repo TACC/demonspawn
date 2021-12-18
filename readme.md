@@ -9,6 +9,8 @@ This can be used
 
 Copyright Victor Eijkhout 2020-2021
 
+For questions and problems, please submit a github issue.
+
 ## Quick example
 
 Example configuration file:
