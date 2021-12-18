@@ -1,0 +1,11 @@
+##
+## global demonspawn settings for Victor
+##
+system frontera
+user eijkhout
+account A-ccsc
+
+queue development limit:1
+queue rtx limit:4
+queue normal limit:10
+

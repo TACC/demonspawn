@@ -15,8 +15,8 @@ queue normal
 #
 #  describe this run
 #
-let rootdir = /work2/00434/eijkhout/demonspawn
-let benchmark = osu
+rootdir /work2/00434/eijkhout/demonspawn
+benchmark osu
 # slurm scripts
 scriptdir %[rootdir]/paw.scripts.%[benchmark].%[system].%[date]
 # all output
@@ -32,5 +32,5 @@ trace 1
 #
 nodes 2:5:10
 ppn 20
-let osudir = /scratch1/05231/aruhela/libs/mvapich2-2.3.5/buildintel/libexec/osu-micro-benchmarks/mpi/collective
+osudir /scratch1/05231/aruhela/libs/mvapich2-2.3.5/buildintel/libexec/osu-micro-benchmarks/mpi/collective
 suite name:osu-collective type:mpi dir:%[osudir] *

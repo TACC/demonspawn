@@ -15,7 +15,7 @@ queue normal
 #
 #  describe this run
 #
-let rootdir = /work2/00434/eijkhout/demonspawn
+rootdir /work2/00434/eijkhout/demonspawn
 # slurm scripts
 scriptdir %[rootdir]/paw.scripts.%[system].%[date]
 # all output
@@ -28,7 +28,7 @@ regression grep:Maximum field:4 take:avg
 #
 # p2p benchmark
 #
-let pawdir  = /work2/00434/eijkhout/mpi-regression/paw/installation_git_%[system]_%[modules]
+pawdir  /work2/00434/eijkhout/mpi-regression/paw/installation_git_%[system]_%[modules]
 # number of nodes
 nodes 2
 # processes per node
