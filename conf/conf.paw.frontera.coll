@@ -6,12 +6,14 @@
 #
 # some global setup
 #
-## all in .spawnrc !
+modules intel/19.1.1 impi/19.0.7
+## all the rest in .spawnrc !
 
 #
 #  describe this run
 #
 rootdir %[pwd]
+outputdir %[rootdir]/spawn-%[jobname]-%[date]
 
 # verbose output
 trace 1
