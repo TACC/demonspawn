@@ -20,7 +20,7 @@ Example configuration file:
     modules intel/18.0.2 impi/18.0.2
     
     # set up directories
-    outputdir = /your/dir/ectory/mybenchmark-%[date]
+    outputdir /your/dir/ectory/mybenchmark-%[date]
     
     # point-to-point benchmark setup
     queue development
@@ -51,11 +51,11 @@ The python script stays active until all submitted SLURM jobs have finished. Thi
 
     nohup python3 spawn.py myconf.txt &
     
-Let's talk about the configuration file, which drives everything.
+The configuration is specified split over the file on the commandline, and a `.spawnrc` file, which can be used for common options, such as your username, and the slurm account to bill your runs to. Since they have the exact same syntax, we will not distinguish between them, and mostly discuss the configuration file.
 
 ### Macros
 
-The configuration file is completely macro based. A macro is defined in a line
+The configuration, specified in the file given on the commandline, is completely macro based. A macro is defined in a line
 
     key value
     
@@ -74,7 +74,7 @@ Thus, you can have multiple suites in one configuration file. Each is invoked wi
 Demonspawn generates output:
 
 * A single log file for the full configuration will be created in the current directory. It is identifiable by having the current date in the name.
-* An output directory is generated based on the `outputdir` key. This will contain subdirectories `scripts` and `output` with the SLURM scripts and their standard out/err respectively.
+* An output directory is generated based on the required `outputdir` key. This will contain subdirectories `scripts` and `output` with the SLURM scripts and their standard out/err respectively.
 * If you do regression, the output directory will also contain a single regression file.
 
 ## SLURM macros
@@ -84,9 +84,11 @@ Some macros have special meaning for your SLURM script:
 * `system` is set to the current hostname. If you specify this macro, it is enforced that this run can only happen on that particular system.
 * `account` is used in your slurm script as the value of the `-A` flag.
 * `modules` is the list of modules that is loaded at the beginning of your slurm script.
-* `queue` is the queue name where the slurm jobs will be submitted. The demonspawn manager will make sure that queue limits are not violated. Queue definitions are currently hard-wired. The queue name has optional limits on the number of simultaneous jobs:
+* `queue` is the value of the slurm `-p` flag: the partition, or queue, name where the jobs of the next suite will be submitted. The demonspawn manager will make sure that queue limits are not violated. The queue name has optional limits on the number of simultaneous jobs:
 
     `queue somequeue limit:2`
+
+   Suggestion: specify queue limits in the `.spawnrc` file. The last specified queue will be used as the default, or you can explicitly choose a queue in the configuration file.
     
 * `time` is a `hh:mm:ss` specification for the slurm `-t` flag.
 
@@ -124,15 +126,15 @@ After these pairs, the programs are specified with wildcards but no path.
 
 ## Directory macros
 
+It is required that you define this macro:
+
+* `outputdir` is the directory in which subdirectories `scripts`, `output`, `regression` are created.
+
 In order to create a unique output directory, the following macros are useful:
 
 * `pwd` is set to the current working directory where you are running python on the configuration file
 * `date` is set to current date-time.
 * `mpi` is set to `LMOD_FAMILY_COMPILER`.
-
-It is recommended that you define this macro:
-
-* `outputdir` is the directory in which subdirectories `scripts`, `output`, `regression` are created. If you do not specify this, the current directory will be used.
 
 For example:
 
