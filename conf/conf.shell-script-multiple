@@ -9,7 +9,7 @@
 system frontera
 user eijkhout
 account A-ccsc
-queue small limit:1
+queue small 1
 
 #
 #  describe this run
@@ -29,6 +29,10 @@ ppn 1
 scriptdir %[pwd]/programs
 regression grep:BW field:4 take:avg
 
+# do a short run
 time 0:5:0
 suite name:short type:seq dir:%[scriptdir] example_script.sh
+# do a long run
+time 0:15:0
+suite name:long type:seq dir:%[scriptdir] example_script.sh
 

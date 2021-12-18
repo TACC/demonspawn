@@ -10,3 +10,5 @@ regression: grep:BW field:4 take:avg
 suites: [{'name': 'script', 'runner': '', 'dir': '/work2/00434/eijkhout/demonspawn/conf', 'apps': ['example_script.sh']}]
 ################################################################
 
+shell-script-multiple : better name handling
+

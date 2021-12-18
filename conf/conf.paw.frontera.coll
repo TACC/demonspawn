@@ -6,20 +6,14 @@
 #
 # some global setup
 #
-system frontera
-user eijkhout
 modules intel/19.1.1 impi/19.0.7
-account A-ccsc
-queue normal
+## all the rest in .spawnrc !
 
 #
 #  describe this run
 #
-let rootdir = /work2/00434/eijkhout/demonspawn
-# slurm scripts
-scriptdir %[rootdir]/paw.scripts.%[system].%[date]
-# all output
-outputdir %[rootdir]/paw.output.%[system].%[date]
+rootdir %[pwd]
+outputdir %[rootdir]/spawn-%[jobname]-%[date]
 
 # verbose output
 trace 1
@@ -30,8 +24,8 @@ regression grep:5.242880E+05 field:2 take:avg
 # collective benchmark
 #
 # number of nodes
-nodes 2:5:10:50:200
+nodes 5,10,50,200
 # processes per node
-ppn 2:20:48
-let pawdir  = /work2/00434/eijkhout/mpi-regression/paw/installation_git_%[system]_%[modules]
+ppn 2,20,48
+pawdir /work2/00434/eijkhout/mpi-regression/paw/installation_git_%[system]_%[modules]
 suite name:paw-mpi-col type:mpi dir:%[pawdir] col_*

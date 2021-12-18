@@ -102,7 +102,7 @@ class Job():
         self.suite = "paw"
         self.queue = None
         self.nodes = 1; self.cores = 10; self.threads = 0
-        self.runtime = "00:05:00"
+        self.time = "01:00:00"
         self.user = "nosuchuser"
         self.account = "MyAccount"
         self.runner = "./"
@@ -168,7 +168,7 @@ f"""#!/bin/bash
 #SBATCH -o {self.slurm_output_file_name}
 #SBATCH -e {self.slurm_output_file_name}
 #SBATCH -p {self.queue}
-#SBATCH -t {self.runtime}
+#SBATCH -t {self.time}
 #SBATCH -N {self.nodes}
 #SBATCH --tasks-per-node {self.cores}
 #SBATCH -A {self.account}
@@ -475,6 +475,7 @@ class TestSuite():
 
     self.name = configuration.pop("name","testsuite")
     self.regression = configuration.get( "regression",False )
+    self.time = configuration.get("time","0:37:0")
 
     self.configuration = configuration
     self.testing = self.configuration.get( "testing",False )
@@ -525,7 +526,7 @@ suites: {self.suites}
                 self.logfile.write(f".. N={nodes} ppn={cores} threads={threads}")
                 job = Job(benchmark=benchmark,
                           nodes=nodes,cores=cores,threads=threads,
-                          queue=jobqueue,
+                          queue=jobqueue,time=self.time,
                           programdir=suite["dir"],
                           modules=self.modules,
                           regression=self.regression,regressionfile=regressionfile,

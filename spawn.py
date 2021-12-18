@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 #
 # Victor Eijkhout
-# 2020-03-09
+# copyright 2020-2022
 
 #--------------------------------------------------------------------------------
 # System
@@ -20,7 +20,10 @@ import time
 from jobsuite import *
 
 keyword_command = [ "nodes", "ppn", "suite", ]
-keyword_reserved = [ "system", "user", "modules", "account", "queue", "date", ]
+keyword_reserved = [ "system", "modules", 
+                     # slurm variables
+                     "account", "queue", "date", "time", "user",
+                   ]
 
 def read_batch_template(filename):
   """
@@ -133,9 +136,11 @@ class Configuration():
             raise Exception(f"Job name can be set only once, current: {jobname}")
         # special case: queue
         elif key=="queue":
-            queue = value; q_lim = value.split(); qname = q_lim[0]; qlimit = 1
-            if len(q_lim)>1:
-                qlimit = q_lim[1]
+            queue = value; nam_lim = value.split(); qname = nam_lim[0]; qlimit = 1
+            if len(nam_lim)>1:
+                qlimit = nam_lim[1]
+                if re.match("limit",qlimit):
+                    qlimit = qlimit.split(":")[1]
             Queues().add_queue( qname,qlimit )
             self.configuration[key] = qname
         # special case: output dir needs to be set immediately
@@ -153,9 +158,8 @@ class Configuration():
           suites.append(s)
         else:
           self.configuration[key] = value
-        # ??? name,val = macro_parse(letline.groups()[1], configuration)
-    if not queue:
-      raise Exception("Did not find a queue specification")
+    # if not queue:
+    #   raise Exception("Did not find a queue specification")
     self.configuration["suites"] = suites
   def run(self):
     for s in self.configuration["suites"]:
@@ -200,9 +204,8 @@ if __name__ == "__main__":
   SpawnFiles().open_new(f"logfile-{jobname}-{starttime}",key="logfile",dir=".")
   queues = Queues()
   queues.testing = testing
-  queues.add_queue("development",1)
-  queues.add_queue("normal",10)
-  queues.add_queue("rtx",4)
+  if os.path.exists(".spawnrc"):
+    configuration.parse(".spawnrc")
   configuration.parse(args[0])
 
   # now activate all the suites
