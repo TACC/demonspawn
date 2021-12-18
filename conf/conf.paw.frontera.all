@@ -39,7 +39,7 @@ suite name:paw-mpi-p2p type:mpi dir:%[pawdir] p2p_*
 # collective benchmark
 #
 # number of nodes
-nodes 2:5:10:50:200
+nodes 2,5,10,50,200
 # processes per node
-ppn 2:20:48
+ppn 2,20,48
 suite name:paw-mpi-col type:mpi dir:%[pawdir] col_*

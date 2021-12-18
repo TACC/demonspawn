@@ -13,7 +13,7 @@ scriptdir /work2/00434/eijkhout/demonspawn/paw.scripts
 outputdir /work2/00434/eijkhout/demonspawn/paw.output
 nodes 2
 suite name:paw-mpi-p2p type:mpi dir:/work2/00434/eijkhout/mpi-regression/paw/installation-frontera p2p_*
-nodes 2:5:10:42
+nodes 2,5,10,42
 suite name:paw-mpi-col type:mpi dir:/work2/00434/eijkhout/mpi-regression/paw/installation-frontera col_*
 #
 queue daos
@@ -21,5 +21,5 @@ scriptdir /work2/00434/eijkhout/demonspawn/paw.scripts-daos
 outputdir /work2/00434/eijkhout/demonspawn/paw.output-daos
 nodes 2
 suite name:paw-daos-p2p type:mpi dir:/work2/00434/eijkhout/mpi-regression/paw/installation-frontera-daos p2p_*
-nodes 2:5:10:42
+nodes 2,5,10,42
 suite name:paw-mpi-col type:mpi dir:/work2/00434/eijkhout/mpi-regression/paw/installation-frontera-daos col_*

@@ -22,8 +22,8 @@ regression grep:5.242880E+05 field:2 take:avg
 # collective benchmark
 #
 # number of nodes
-nodes 5:10:50:200
+nodes 5,10,50,200
 # processes per node
-ppn 2:20:48
+ppn 2,20,48
 pawdir /work2/00434/eijkhout/mpi-regression/paw/installation_git_%[system]_%[modules]
 suite name:paw-mpi-col type:mpi dir:%[pawdir] col_*

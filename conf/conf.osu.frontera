@@ -30,7 +30,7 @@ trace 1
 #
 # collective benchmark
 #
-nodes 2:5:10
+nodes 2,5,10
 ppn 20
 osudir /scratch1/05231/aruhela/libs/mvapich2-2.3.5/buildintel/libexec/osu-micro-benchmarks/mpi/collective
 suite name:osu-collective type:mpi dir:%[osudir] *
