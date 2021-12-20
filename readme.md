@@ -29,14 +29,14 @@ Example configuration file:
     nodes 2
     ppn 1
     # program to run
-    suite name:paw-mpi type:mpi dir:/home/me/paw p2p_*
+    suite name:paw-ptp type:mpi dir:/home/me/paw p2p_*
     
     # collective benchmark setup
     queue normal
     nodes 4,8,12,16
     ppn 1,5,10
     # program to run
-    suite name:paw-mpi type:mpi dir:/home/me/paw coll_*
+    suite name:paw-col type:mpi dir:/home/me/paw coll_*
     
 ## Introduction
 
