@@ -152,6 +152,8 @@ This will grep through each result file in the suite, leaving the result in
 
     %[outputdir]/regression-%[suitename].txt
     
+Note: the regression specification is part of the suite definition, so it needs to come *before* the `suite` line.
+
 Further options:
 
 * `field:5` extract only the 5-th whitespace-separated field; this numbering is 1-based
