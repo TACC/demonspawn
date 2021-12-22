@@ -105,6 +105,7 @@ class Job():
         self.time = "01:00:00"
         self.user = "nosuchuser"
         self.account = "MyAccount"
+        self.sbatch = []
         self.runner = "./"
         self.benchmark = "bench"
         self.trace = False; self.debug = False
@@ -162,6 +163,10 @@ export OMP_NUM_THREADS=$threadcount
 export OMP_PROC_BIND=true
 """
         else: threadset = ""
+        sbatch = ""
+        for s in self.sbatch:
+          sbatch += f"""#SBATCH {s}
+"""
         return  \
 f"""#!/bin/bash
 #SBATCH -J {self.name()}
@@ -172,6 +177,7 @@ f"""#!/bin/bash
 #SBATCH -N {self.nodes}
 #SBATCH --tasks-per-node {self.cores}
 #SBATCH -A {self.account}
+{sbatch}
 
 {moduleset}{threadset}
 cd {self.outputdir}
@@ -532,6 +538,7 @@ suites: {self.suites}
                           regression=self.regression,regressionfile=regressionfile,
                           runner=suite["runner"],
                           account=self.configuration["account"],user=self.configuration["user"],
+                          sbatch=self.configuration["sbatch"],
                           count=count,trace=True)
                 if submit:
                   Queues().enqueue(job)

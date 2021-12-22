@@ -111,7 +111,7 @@ class Configuration():
       self.configuration["mpi"]       = "mpich"
     self.configuration["pwd"]       = os.getcwd()
   def parse(self,filename,**kwargs):
-    suites = []; queue = None
+    suites = []; queue = None; sbatch = []
     with open(filename,"r") as configuration:
       for specline in configuration:
         specline = specline.strip()
@@ -146,6 +146,9 @@ class Configuration():
         # special case: output dir needs to be set immediately
         elif key=="outputdir":
           SpawnFiles().setoutputdir( value )
+        # special case: `sbatch' lines are appended
+        elif key=="sbatch":
+          sbatch.append(value)
         #
         # suite or macro
         #
@@ -161,6 +164,7 @@ class Configuration():
     # if not queue:
     #   raise Exception("Did not find a queue specification")
     self.configuration["suites"] = suites
+    self.configuration["sbatch"] = sbatch
   def run(self):
     for s in self.configuration["suites"]:
       s.run(debug=self.configuration["debug"],
