@@ -94,6 +94,12 @@ Some macros have special meaning for your SLURM script:
     
 * `time` is a `hh:mm:ss` specification for the slurm `-t` flag.
 
+It is possible to add custom `#SBATCH foo=bar` lines to a script. For this, put one or more lines
+
+    sbatch foo=bar
+
+in the configuration. This the only option that is cumulative: these options are gathered up and used for each script. Thus they can not be reset between `suite` lines.
+
 ## Scaling setup
 
 For an MPI run you want to specify:
