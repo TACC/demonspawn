@@ -6,11 +6,10 @@
 #
 # some global setup
 #
-system frontera
-user eijkhout
 modules intel/19.1.1 impi/19.0.7
-account A-ccsc
 queue development
+sbatch --mail-user=%[user]
+sbatch --mail-type=end
 
 #
 #  describe this run
