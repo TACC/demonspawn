@@ -376,6 +376,7 @@ class Queue():
         self.jobs.append(j)
         qrunning = running_jobids(self.name,j.user)
         if len(qrunning)<self.limit:
+            ## this may throw an exception if QoS exceeded
             jobid = j.submit()
     def status_update(self,status_dict):
         #
@@ -394,8 +395,13 @@ class Queue():
         for j in self.jobs:
             if nslots==0: break
             if not j.get_has_been_submitted():
-                j.submit()
-                nslots -= 1
+                try :
+                    j.submit()
+                    nslots -= 1
+                except :
+                    print(f"Failed to submit")
+                    self.jobs.remove(j)
+                    continue
     def how_many_unfinished(self):
         return sum( [ 1 for j in self.jobs if not j.get_done_running() ] )
     def ids(self):
