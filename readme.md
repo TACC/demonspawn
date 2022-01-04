@@ -84,7 +84,7 @@ Demonspawn generates output:
 Some macros have special meaning for your SLURM script:
 
 * `system` is set to the current hostname. If you specify this macro, it is enforced that this run can only happen on that particular system.
-* `account` is used in your slurm script as the value of the `-A` flag.
+* `account` is used in your slurm script as the value of the `-A` or `--account` flag.
 * `modules` is the list of modules that is loaded at the beginning of your slurm script.
 * `queue` is the value of the slurm `-p` flag: the partition, or queue, name where the jobs of the next suite will be submitted. The demonspawn manager will make sure that queue limits are not violated. The queue name has optional limits on the number of simultaneous jobs:
 
@@ -163,6 +163,7 @@ Note: the regression specification is part of the suite definition, so it needs 
 Further options:
 
 * `field:5` extract only the 5-th whitespace-separated field; this numbering is 1-based
+* `label:abcd` put a label in front of the regression line. This can be a literal string, or a macro. (Experimental)
 
 ## Limitations
 
