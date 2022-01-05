@@ -31,7 +31,7 @@ def module_string(txt):
 
 def macro_value( m,macros ):
     if m in macros.keys():
-        return macros[m]
+        return str(macros[m])
     else:
         return m
 
@@ -142,7 +142,8 @@ class Job():
             self.macros[key] = val
         tracestring = f"Creating job <<{self.name()}>> with <<{tracestring}>>"
 
-        self.macros["cores"] = int( self.macros["nodes"] ) * int( self.macros["ppn"] )
+        self.cores = int( self.macros["nodes"] ) * int( self.macros["ppn"] )
+        self.macros["cores"] = self.cores
 
         script_file_name = f"{self.name()}.script"
         script_file_handle,scriptdir,script_file_name \
@@ -293,8 +294,13 @@ fi
                     fields = line.split()
                     string = fields[ int(rtest["field"])-1 ]
                 if "label" in rtest.keys():
-                    label = macro_value( rtest["label"], self.macros )
-                    string = f"{label} {string}"
+                    labels = ""
+                    for l in rtest["label"]:
+                        if labels=="":
+                            labels = macro_value( l, self.macros )
+                        else:
+                            labels = labels+" "+macro_value( l, self.macros )
+                    string = f"{labels} {string}"
                 self.logfile.write(f"File: {self.name()}\n{string}\n")
                 self.regressionfile.write(f"File: {self.name()}\n{string}\n")
         if not found:
@@ -310,7 +316,12 @@ fi
                 print(f"ill-formed regression clause <<{kv}>>")
                 continue
             k,v = kv.split(":")
-            rtest[k] = v
+            if k=="label":
+                if k not in rtest.keys():
+                    rtest[k] = []
+                rtest[k].append(v)
+            else:
+                rtest[k] = v
         if "grep" in rtest.keys():
           try:
             with open(filename,"r") as output_file:
