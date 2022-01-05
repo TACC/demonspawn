@@ -163,7 +163,7 @@ Note: the regression specification is part of the suite definition, so it needs 
 Further options:
 
 * `field:5` extract only the 5-th whitespace-separated field; this numbering is 1-based
-* `label:abcd` put a label in front of the regression line. This can be a literal string, or a macro. (Experimental)
+* `label:abcd` put a label in front of the regression line. This can be a literal string, or a macro. If multiple `label` options are given, they are all used, in the sequence specified, separated by a space character.
 
 ## Limitations
 
