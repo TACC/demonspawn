@@ -50,16 +50,6 @@ def wait_for_jobs( jobs ):
       break
     time.sleep(1)
 
-def macros_substitute(line,macros):
-  subline = line
-  for m in macros.keys():
-    m_search = r'\%\[{}\]'.format(m)
-    if re.search(m_search,line):
-      replacement_text = macros[m]
-      if m=="modules":
-        replacement_text = module_string(replacement_text)
-      subline = re.sub( m_search, replacement_text, subline )
-  return subline
 def get_suite_name(options,values):
   if "name" in options.keys():
     return options["name"]

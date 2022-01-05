@@ -6,6 +6,7 @@
 #--------------------------------------------------------------------------------
 # System
 #from __future__ import print_function
+import copy
 import datetime
 from functools import reduce
 import io
@@ -27,6 +28,23 @@ def module_string(txt):
   # join modules with underscore for configuration name
   txt = '_'.join( txt )
   return txt
+
+def macro_value( m,macros ):
+    if m in macros.keys():
+        return macros[m]
+    else:
+        return m
+
+def macros_substitute(line,macros):
+    subline = line
+    for m in macros.keys():
+        m_search = r'\%\[{}\]'.format(m)
+        if re.search(m_search,line):
+            replacement_text = macro_value( m,macros )
+            if m=="modules":
+                replacement_text = module_string(replacement_text)
+            subline = re.sub( m_search, replacement_text, subline )
+    return subline
 
 ##
 ## files may not be unique per job
@@ -101,7 +119,7 @@ class Job():
         #default values to be overwritten later
         self.suite = "paw"
         self.queue = None
-        self.nodes = 1; self.cores = 10; self.threads = 0
+        self.nodes = 1; self.cores = 10; self.ppn = 1; self.threads = 0
         self.time = "01:00:00"
         self.user = "nosuchuser"
         self.account = "MyAccount"
@@ -111,18 +129,22 @@ class Job():
         self.trace = False; self.debug = False
         self.logfile,_,_ = SpawnFiles().open("logfile")
         self.regressionfile = None
+        self.macros = copy.copy( kwargs.pop("macros",{}) )
         self.set_has_not_been_submitted()
 
         tracestring = ""
+        forbidden = [ "logfile","macros", ]
         for key,val in kwargs.items():
-          if key in ["logfile"] :
-            raise Exception(f"Forbidden keyword <<{key}>>")
-          tracestring += " {}={}".format(key,val)
-          self.__dict__[key] = val
+            if key in forbidden:
+              continue
+            tracestring += " {}={}".format(key,val)
+            self.__dict__[key] = val
+            self.macros[key] = val
         tracestring = f"Creating job <<{self.name()}>> with <<{tracestring}>>"
 
+        self.macros["cores"] = int( self.macros["nodes"] ) * int( self.macros["ppn"] )
+
         script_file_name = f"{self.name()}.script"
-        print(f"script file name: {script_file_name}")
         script_file_handle,scriptdir,script_file_name \
           = SpawnFiles().open_new( script_file_name,subdir="scripts" )
         self.script_file_name = f"{scriptdir}/{script_file_name}"
@@ -195,7 +217,7 @@ fi
           thread_spec = f"-tx"
         else:
           thread_spec = ""
-        return f"N{self.nodes}-ppn{self.cores}{thread_spec}"
+        return f"N{self.nodes}-ppn{self.ppn}{thread_spec}"
     def name(self):
         return f"{self.benchmark}-{self.nodespec()}"
     def __str__(self):
@@ -259,6 +281,27 @@ fi
         for status in io.TextIOWrapper(p.stdout, encoding="utf-8"):
             status = status.strip()
         return status
+    def regression_grep(self,output_file,rtest):
+        greptext = re.sub("_"," ",rtest["grep"])
+        found = False
+        for line in output_file:
+            line = line.strip()
+            if re.search(greptext,line):
+                found = True
+                string = line
+                if "field" in rtest.keys():
+                    fields = line.split()
+                    string = fields[ int(rtest["field"])-1 ]
+                if "label" in rtest.keys():
+                    label = macro_value( rtest["label"], self.macros )
+                    string = f"{label} {string}"
+                self.logfile.write(f"File: {self.name()}\n{string}\n")
+                self.regressionfile.write(f"File: {self.name()}\n{string}\n")
+        if not found:
+            self.logfile.write\
+              (f"{self.name()}: regression failed to find <<{greptext}>>\n")
+            self.regressionfile.write\
+              (f"{self.name()}: regression failed to find <<{greptext}>>\n")
     def do_regression(self,filename):
         print(f"Doing regression on {filename}")
         rtest = {}
@@ -269,26 +312,9 @@ fi
             k,v = kv.split(":")
             rtest[k] = v
         if "grep" in rtest.keys():
-          greptext = re.sub("_"," ",rtest["grep"])
           try:
             with open(filename,"r") as output_file:
-              found = False
-              for line in output_file:
-                line = line.strip()
-                if re.search(greptext,line):
-                  found = True
-                  if "field" in rtest.keys():
-                    fields = line.split(); field = fields[ int(rtest["field"])-1 ]
-                    self.logfile.write(f"File: {self.name()}\n{field}\n")
-                    self.regressionfile.write(f"File: {self.name()}\n{field}\n")
-                  else:
-                    self.logfile.write(f"File: {self.name()}\n{line}\n")
-                    self.regressionfile.write(f"File: {self.name()}\n{line}\n")
-              if not found:
-                self.logfile.write\
-                  (f"{self.name()}: regression failed to find <<{greptext}>>\n")
-                self.regressionfile.write\
-                  (f"{self.name()}: regression failed to find <<{greptext}>>\n")
+              self.regression_grep(output_file,rtest)
           except FileNotFoundError as e :
             print(f"Could not open file for regression: <<{e}>>")
 def parse_suite(suite_option_list):
@@ -513,6 +539,9 @@ suites: {self.suites}
       return f"{typ}-{dir}"
     else:
       return f"{typ}"
+  def tracemsg(self,msg):
+      print(msg)
+      self.logfile.write(msg+"\n")
   def run(self,**kwargs):
       testing = kwargs.get("testing",False)
       debug = kwargs.get("debug",False)
@@ -528,16 +557,14 @@ suites: {self.suites}
           if self.regression:
             regressionfile,_,_ \
               = SpawnFiles().open_new( f"regression-{suitename}.txt" )
-          self.logfile.write(f"Test suite {self.name} run at {self.starttime}\n")
+          self.tracemsg(f"Test suite {self.name} run at {self.starttime}")
           self.logfile.write(str(self))
           for benchmark in suite["apps"]:
-              print("="*16,f"{count}: submitting suite={suitename} benchmark={benchmark} at {datetime.datetime.now()}")
-              self.logfile.write(f"{count}: submitting suite={suitename} benchmark={benchmark}")
-              for nodes,cores,threads in self.nodes_cores_threads:
-                print(".. on %d nodes" % nodes)
-                self.logfile.write(f".. N={nodes} ppn={cores} threads={threads}")
+              self.tracemsg("="*16+"\n"+f"{count}: submitting suite=<<{suitename}>> benchmark=<<{benchmark}>> at {datetime.datetime.now()}")
+              for nodes,ppn,threads in self.nodes_cores_threads:
+                self.tracemsg(f" .. N={nodes} ppn={ppn} threads={threads}")
                 job = Job(benchmark=benchmark,
-                          nodes=nodes,cores=cores,threads=threads,
+                          nodes=nodes,ppn=ppn,threads=threads,
                           queue=jobqueue,time=self.time,
                           programdir=suite["dir"],
                           modules=self.modules,
@@ -545,7 +572,9 @@ suites: {self.suites}
                           runner=suite["runner"],
                           account=self.configuration["account"],user=self.configuration["user"],
                           sbatch=self.configuration["sbatch"],
-                          count=count,trace=True)
+                          macros=self.configuration,
+                          count=count,trace=True,
+                        )
                 if submit:
                   Queues().enqueue(job)
                 count += 1
