@@ -6,12 +6,11 @@
 #--------------------------------------------------------------------------------
 # System
 #from __future__ import print_function
+import copy
 import datetime
-import io
 import os
 import re
 import sys
-import subprocess as sp
 import time
 
 
@@ -101,7 +100,8 @@ class Configuration():
       self.configuration["mpi"]       = "mpich"
     self.configuration["pwd"]       = os.getcwd()
   def parse(self,filename,**kwargs):
-    suites = []; queue = None; sbatch = []
+    self.configuration["suites"] = []; self.configuration["sbatch"] = []
+    queue = None
     with open(filename,"r") as configuration:
       for specline in configuration:
         specline = specline.strip()
@@ -138,7 +138,7 @@ class Configuration():
           SpawnFiles().setoutputdir( value )
         # special case: `sbatch' lines are appended
         elif key=="sbatch":
-          sbatch.append(value)
+          self.configuration["sbatch"].append(value)
         #
         # suite or macro
         #
@@ -147,14 +147,10 @@ class Configuration():
           fields = value.split(" ")
           values = [ macros_substitute(f,self.configuration) for f in fields ]
           n = get_suite_name(self.configuration,values)
-          s = TestSuite( values,self.configuration )
-          suites.append(s)
+          s = TestSuite( values, copy.copy(self.configuration) )
+          self.configuration["suites"].append(s)
         else:
           self.configuration[key] = value
-    # if not queue:
-    #   raise Exception("Did not find a queue specification")
-    self.configuration["suites"] = suites
-    self.configuration["sbatch"] = sbatch
   def run(self):
     for s in self.configuration["suites"]:
       s.run(debug=self.configuration["debug"],
