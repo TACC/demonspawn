@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 #
 # Victor Eijkhout
-# 2020-03-09
+# 2020-2022
 
 #--------------------------------------------------------------------------------
 # System
@@ -198,7 +198,7 @@ f"""#!/bin/bash
 #SBATCH -p {self.queue}
 #SBATCH -t {self.time}
 #SBATCH -N {self.nodes}
-#SBATCH --tasks-per-node {self.cores}
+#SBATCH --tasks-per-node {self.ppn}
 #SBATCH -A {self.account}
 {sbatch}
 
