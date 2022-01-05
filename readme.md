@@ -7,7 +7,7 @@ This can be used
 * as a stress test doing parametrized runs of a single test
 * sanity test: after a system upgrade, see if everything still works.
 
-Copyright Victor Eijkhout 2020-2021
+Copyright Victor Eijkhout 2020-2022
 
 For questions and problems, please submit a github issue.
 
@@ -77,7 +77,7 @@ Demonspawn generates output:
 
 * A single log file for the full configuration will be created in the current directory. It is identifiable by having the current date in the name.
 * An output directory is generated based on the required `outputdir` key. This will contain subdirectories `scripts` and `output` with the SLURM scripts and their standard out/err respectively.
-* If you do regression, the output directory will also contain a single regression file.
+* If you do regression, the output directory will also contain a single regression file for each `suite` line.
 
 ## SLURM macros
 
