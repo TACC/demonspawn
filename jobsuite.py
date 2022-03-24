@@ -522,8 +522,8 @@ class Queues():
       return self.instance.__getattr__(attr)
 
 class TestSuite():
-  def __init__(self,suite,configuration):
-    ## this needs to come from the `suite' list
+  def __init__(self,suite_spec,configuration):
+
     self.logfile        = SpawnFiles().get("logfile")
     self.starttime      = configuration.get("date","00-00-00")
 
@@ -531,13 +531,19 @@ class TestSuite():
     self.regression = configuration.get( "regression",False )
     self.time = configuration.get("time","0:37:0")
 
+    env = configuration.get("env",[])
+    for e in env:
+      name,value = e.split(" ",1)
+      print(f"Setting environment variable <<{name}>> to <<{value}>>")
+      os.environ[name] = value
+
     self.configuration = configuration
     self.testing = self.configuration.get( "testing",False )
     self.modules = self.configuration.get( "modules",None )
     print(f"Test suite with modules {self.modules}")
 
     self.nodes_cores_threads = nodes_cores_threads_values(self.configuration)
-    self.suites = [ parse_suite( suite ) ]
+    self.suites = [ parse_suite( suite_spec ) ]
     print("{}".format(str(self)))
   def __str__(self):
     description = f"""

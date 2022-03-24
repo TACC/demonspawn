@@ -100,7 +100,8 @@ class Configuration():
       self.configuration["mpi"]       = "mpich"
     self.configuration["pwd"]       = os.getcwd()
   def parse(self,filename,**kwargs):
-    self.configuration["suites"] = []; self.configuration["sbatch"] = []
+    for k in [ "suites","sbatch","env" ]:
+      self.configuration[k] = []
     queue = None
     with open(filename,"r") as configuration:
       for specline in configuration:
@@ -136,18 +137,18 @@ class Configuration():
         # special case: output dir needs to be set immediately
         elif key=="outputdir":
           SpawnFiles().setoutputdir( value )
-        # special case: `sbatch' lines are appended
-        elif key=="sbatch":
-          self.configuration["sbatch"].append(value)
+        # special case: `sbatch'  and `env' lines are appended
+        elif key in ["sbatch","env"]:
+          self.configuration[key].append(value)
         #
         # suite or macro
         #
         elif key=="suite":
           # now parse
           fields = value.split(" ")
-          values = [ macros_substitute(f,self.configuration) for f in fields ]
-          n = get_suite_name(self.configuration,values)
-          s = TestSuite( values, copy.copy(self.configuration) )
+          suitespec = [ macros_substitute(f,self.configuration) for f in fields ]
+          n = get_suite_name(self.configuration,suitespec)
+          s = TestSuite( suitespec, copy.copy(self.configuration) )
           self.configuration["suites"].append(s)
         else:
           self.configuration[key] = value
