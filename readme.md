@@ -42,10 +42,11 @@ Example configuration file:
 
 Demonspawn is a script that schedules SLURM job. Invocation:
 
-    python3 spawn.py [ -d ] [ -f ] configurationfile
+    python3 spawn.py [ -h ] [ -d ] [ -f ] configurationfile
 
 Flags:
 
+* `-h --help` : print help and quit
 * `-d --debug` : lots of debug output
 * `-f --filesonly` : generate all script files, but do not submit
 
@@ -85,7 +86,7 @@ Some macros have special meaning for your SLURM script:
 
 * `system` is set to the current hostname. If you specify this macro, it is enforced that this run can only happen on that particular system.
 * `account` is used in your slurm script as the value of the `-A` or `--account` flag.
-* `modules` is the list of modules that is loaded at the beginning of your slurm script.
+* `modules` is the list of modules that is loaded at the beginning of your slurm script. The value of `%[modules]` has all spaces stripped. Special case: `modules restore foo` will cause the saveset `foo` to be restored.
 * `queue` is the value of the slurm `-p` flag: the partition, or queue, name where the jobs of the next suite will be submitted. The demonspawn manager will make sure that queue limits are not violated. The queue name has optional limits on the number of simultaneous jobs:
 
     `queue somequeue limit:2`
@@ -110,9 +111,14 @@ For an MPI run you want to specify:
 
 ## Suite setup
 
-The macro `jobname` is by default "`spawn`". It is used for the name of the logfile. You can only once define this in your configuration.
+Some macros related to running the benchmark programs.
 
-On the other hand, you can have multiple test suites. A test suite is specified by the keyword:
+* `jobname` : this is by default "`spawn`". It is used for the name of the logfile. You can only once define this in your configuration.
+* `env` : this is used to specify environment variables. At the moment this is strictly additive: each suite is started with the sum total of specified options at that point. Example:
+
+    `env PETSC_OPTIONS -ksp_max_it 100 -ksp_monitor`
+
+You can have multiple test suites. A test suite is specified by the keyword:
 
 * `suite` : this is followed by a list of key:value pairs, followed by a list of programs, which can use wildcards
 
@@ -165,10 +171,19 @@ Further options:
 * `field:5` extract only the 5-th whitespace-separated field; this numbering is 1-based
 * `label:abcd` put a label in front of the regression line. This can be a literal string, or a macro. If multiple `label` options are given, they are all used, in the sequence specified, separated by a space character.
 
+If you want to run a regression on already generated output, run the configuration again, but with the `--regressiononly` flag.
+
 ## Limitations
 
 * Currently the software requires python version 3.8 or higher.
 * The `system` keyword only works at TACC
 * The `mpi` keyword depends on Lmod.
+
+## Changelog
+
+0.1 somewhere around `2021/12/01`: posted on reddit
+
+0.2 `2022/02/15`: adding module restore, `regressiononly` option
+
 
 
