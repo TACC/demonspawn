@@ -166,26 +166,31 @@ class Job():
             print("Trying to create regression job without regressionfile"); sys.exit(1)
         if self.trace: print(tracestring)
         if self.logfile: self.logfile.write(tracestring+"\n")
-    def script_contents(self):
-        bench_program = self.runner+self.programdir+"/"+self.benchmark
+    def modules_load_line(self):
         if self.modules!="default":
-          moduleset = f"""## custom modules
+          return f"""## custom modules
 module reset
 module load {self.modules}
 """
-        else: moduleset = ""
-        if self.threads!=0:
+        else: return ""
+    def omp_thread_spec(self):
+        if self.threads==0:
+          return ""
+        else:
           if self.threads>0:
             threadcount = self.threads
           else:
             threadcount = "$(( SLURM_CPUS_ON_NODE / SLURM_NTASKS * SLURM_NNODES ))"
-          threadset = f"""## OpenMP thread specification
+          return f"""## OpenMP thread specification
 threadcount={threadcount}
 if [ $threadcount -lt 1 ] ; then threadcount=1 ; fi
 export OMP_NUM_THREADS=$threadcount
 export OMP_PROC_BIND=true
 """
-        else: threadset = ""
+    def script_contents(self):
+        bench_program = self.runner+self.programdir+"/"+self.benchmark
+        module_spec = self.modules_load_line()
+        thread_spec = self.omp_thread_spec()
         sbatch = ""
         for s in self.sbatch:
           sbatch += f"""#SBATCH {s}
@@ -202,7 +207,7 @@ f"""#!/bin/bash
 #SBATCH -A {self.account}
 {sbatch}
 
-{moduleset}{threadset}
+{module_spec}{thread_spec}
 cd {self.outputdir}
 program={self.programdir}/{self.benchmark}
 if [ ! -f "$program" ] ; then 
