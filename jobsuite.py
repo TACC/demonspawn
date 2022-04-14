@@ -59,10 +59,11 @@ class SpawnFiles():
       self.outputdir = None
       self.debug = False
     def setoutputdir(self,dir):
-      try:
+      if not os.path.exists(dir):
+        print(f"Creating output directory <<{dir}>>")
         os.mkdir(dir)
-      except:
-        raise Exception(f"Could not make dir <<{dir}>>") 
+      else:
+        print(f"Re-using old output directory <<{dir}>>")
       self.outputdir = dir
     def ensurefiledir(self,dir=None,subdir=None):
       if dir:
@@ -120,6 +121,8 @@ class Job():
         self.suite = "paw"
         self.queue = None
         self.nodes = 1; self.cores = 10; self.ppn = 1; self.threads = 0
+        self.unique_name = None
+
         self.time = "01:00:00"
         self.user = "nosuchuser"
         self.account = "MyAccount"
@@ -140,19 +143,21 @@ class Job():
             tracestring += " {}={}".format(key,val)
             self.__dict__[key] = val
             self.macros[key] = val
-        tracestring = f"Creating job <<{self.name()}>> with <<{tracestring}>>"
 
         self.cores = int( self.macros["nodes"] ) * int( self.macros["ppn"] )
         self.macros["cores"] = self.cores
+        if not self.unique_name:
+          self.unique_name = f"{self.benchmark}-{self.nodespec()}"
+        tracestring = f"Creating job <<{self.unique_name}>> with <<{tracestring}>>"
 
-        script_file_name = f"{self.name()}.script"
+        script_file_name = f"{self.unique_name}.script"
         script_file_handle,scriptdir,script_file_name \
           = SpawnFiles().open_new( script_file_name,subdir="scripts" )
         self.script_file_name = f"{scriptdir}/{script_file_name}"
         # we are assuming that the files wind up in a unique directory
         # so we don't need the job number in the name
         self.outputdir = SpawnFiles().ensurefiledir(subdir="output")
-        self.slurm_output_file_name = f"{self.outputdir}/{self.name()}.out" # .out%j"
+        self.slurm_output_file_name = f"{self.outputdir}/{self.unique_name}.out" # .out%j"
         script_file_handle.write(self.script_contents()+"\n")
         script_file_handle.close()
         self.logfile.write(f"""
@@ -197,7 +202,7 @@ export OMP_PROC_BIND=true
 """
         return  \
 f"""#!/bin/bash
-#SBATCH -J {self.name()}
+#SBATCH -J {self.unique_name}
 #SBATCH -o {self.slurm_output_file_name}
 #SBATCH -e {self.slurm_output_file_name}
 #SBATCH -p {self.queue}
@@ -224,8 +229,6 @@ fi
         else:
           thread_spec = ""
         return f"N{self.nodes}-ppn{self.ppn}{thread_spec}"
-    def name(self):
-        return f"{self.benchmark}-{self.nodespec()}"
     def __str__(self):
         return f"{self.benchmark} N={self.nodes} cores={self.cores} threads={self.threads} regression={self.regression}"
     def submit(self):
@@ -266,19 +269,18 @@ fi
             # job not found in slurm: either not scheduled, or already finished
             if self.jobid!="1":
                 # it has an actual id
-                if self.status!="POST":
-                  self.status = "POST" # done running
-                  if self.regression:
-                    if self.logfile:
-                      self.logfile.write(f"Doing regression <<{self.regression}>> on job {self.name()} to <<{self.slurm_output_file_name}>> and general regression file\n")
-                    self.do_regression(self.slurm_output_file_name)
-                    self.logfile.write(f".. done regression\n")
+                if not self.done_running():
+                    self.set_done_running()
     def is_running(self):
         return self.jobid!="1" and self.status=="R"
     def is_pending(self):
         return self.jobid!="1" and self.status=="PD"
-    def get_done_running(self):
+    def done_running(self):
         return self.status=="POST"
+    def set_done_running(self):
+        self.status = "POST" # done running
+        if self.regression:
+            self.do_regression()
     def get_status(self):
         id = self.jobid
         # squeue -j 6137988 -h -o "%t"
@@ -306,14 +308,17 @@ fi
                         else:
                             labels = labels+" "+macro_value( l, self.macros )
                     string = f"{labels} {string}"
-                self.logfile.write(f"File: {self.name()}\n{string}\n")
-                self.regressionfile.write(f"File: {self.name()}\n{string}\n")
+                self.logfile.write(f"File: {self.unique_name}\n{string}\n")
+                self.regressionfile.write(f"File: {self.unique_name}\n{string}\n")
         if not found:
             self.logfile.write\
-              (f"{self.name()}: regression failed to find <<{greptext}>>\n")
+              (f"{self.unique_name}: regression failed to find <<{greptext}>>\n")
             self.regressionfile.write\
-              (f"{self.name()}: regression failed to find <<{greptext}>>\n")
-    def do_regression(self,filename):
+              (f"{self.unique_name}: regression failed to find <<{greptext}>>\n")
+    def do_regression(self,filename=None):
+        if not filename: filename = self.slurm_output_file_name
+        if self.logfile:
+            self.logfile.write(f"Doing regression <<{self.regression}>> on job {self.unique_name} to <<{self.slurm_output_file_name}>> and general regression file\n")
         print(f"Doing regression on {filename}")
         rtest = {}
         for kv in self.regression.split():
@@ -333,6 +338,8 @@ fi
               self.regression_grep(output_file,rtest)
           except FileNotFoundError as e :
             print(f"Could not open file for regression: <<{e}>>")
+        if self.logfile:
+            self.logfile.write(f".. done regression\n")
 def parse_suite(suite_option_list):
   suite = { "name" : "unknown", "runner" : "", "dir" : "./", "apps" : [] }
   for opt in suite_option_list:
@@ -445,7 +452,7 @@ class Queue():
                     self.jobs.remove(j)
                     continue
     def how_many_unfinished(self):
-        return sum( [ 1 for j in self.jobs if not j.get_done_running() ] )
+        return sum( [ 1 for j in self.jobs if not j.done_running() ] )
     def ids(self):
         return [ j.jobid for j in self.jobs if j.jobid!="1" ]
 
@@ -491,7 +498,6 @@ class Queues():
             #
             ids = reduce( lambda x,y:x+y,
                           [ q.ids() for q in self.queues.values() ] )
-            #print("All ids: <<{}>>".format(ids))
             id_string = ",".join( ids )
             if self.debug: print("Getting status for",id_string)
             #
@@ -573,6 +579,7 @@ suites: {self.suites}
       jobs = []; jobids = []
       # should queues be global?
       jobqueue = self.configuration["queue"]
+      jobnames = []
       for suite in self.suites:
           suitename = suite["name"]
           print(f"Suitename: {suitename}")
@@ -585,7 +592,13 @@ suites: {self.suites}
               self.tracemsg("="*16+"\n"+f"{count}: submitting suite=<<{suitename}>> benchmark=<<{benchmark}>> at {datetime.datetime.now()}")
               for nodes,ppn,threads in self.nodes_cores_threads:
                 self.tracemsg(f" .. N={nodes} ppn={ppn} threads={threads}")
+                unique_name = f"{suitename}-{benchmark}-{nodes}-{ppn}-{threads}"
+                if unique_name in jobnames:
+                    raise Exception(f"Job name conflict: {unique_name}")
+                else:
+                    jobnames.append(unique_name)
                 job = Job(benchmark=benchmark,
+                          unique_name=unique_name,
                           nodes=nodes,ppn=ppn,threads=threads,
                           queue=jobqueue,time=self.time,
                           programdir=suite["dir"],
@@ -598,7 +611,9 @@ suites: {self.suites}
                           count=count,trace=True,
                         )
                 if submit:
-                  Queues().enqueue(job)
+                    Queues().enqueue(job)
+                elif job.regression:
+                    job.do_regression()
                 count += 1
       if submit:
         Queues().wait_for_jobs()

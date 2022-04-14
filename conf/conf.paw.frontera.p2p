@@ -15,8 +15,6 @@ sbatch --mail-type=end
 #  describe this run
 #
 jobname paw-p2p
-rootdir %[pwd]
-outputdir %[rootdir]/spawn-%[jobname]-%[date]
 
 # verbose output
 trace 1
@@ -30,7 +28,7 @@ nodes 2
 # processes per node
 ppn 1
 
-pawdir /work2/00434/eijkhout/mpi-regression/paw/installation_git_%[system]_%[modules]
+pawdir /work2/00434/eijkhout/mpi-regression/paw/installation-git-clx
 regression grep:BW field:4 take:avg
 suite name:paw-mpi-p2p type:mpi dir:%[pawdir] p2p_*
 

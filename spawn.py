@@ -136,7 +136,7 @@ class Configuration():
             self.configuration[key] = qname
         # special case: output dir needs to be set immediately
         elif key=="outputdir":
-          SpawnFiles().setoutputdir( value )
+          raise Exception("outputdir key deprecated")
         # special case: `sbatch'  and `env' lines are appended
         elif key in ["sbatch","env"]:
           self.configuration[key].append(value)
@@ -167,19 +167,21 @@ if __name__ == "__main__":
   testing = False                      
   debug = False
   submit  = True
-  jobname = "spawn"
+  jobname = "spawn"; outputdir = None
   rootdir = os.getcwd()
   while re.match("^-",args[0]):
     if args[0]=="-h":
-      print("Usage: python3 batch.py [ -h ]  [ -d --debug ] [ -f --filesonly ] [ -t --test ] [ -n name ] [ -r rootdir ]")
+      print("Usage: python3 batch.py [ -h ]  [ -d --debug ] [ -f --filesonly ] [ -t --test ] [ -n name ] [ -r --regression dir ] [ -o --output dir ")
       sys.exit(0)
     elif args[0] == "-n":
       args = args[1:]; jobname = args[0]
-    elif args[0] == "-r":
-      args = args[1:]; rootdir = args[0]
-      raise Exception("root -> output")
     elif args[0] in [ "-f", "--filesonly" ] :
-      submit = False
+      submit = False; testing = False
+    elif args[0] in [ "-r",  "--regression" ] :
+      args = args[1:]; outputdir = args[0]
+      testing = True; submit = False
+    elif args[0] in [ "-o",  "--outputdir" ] :
+      args = args[1:]; outputdir = args[0]
     elif args[0] in [ "-t", "--test" ]:
       testing = True; submit = False
     elif args[0] in [ "-d", "--debug" ]:
@@ -187,12 +189,16 @@ if __name__ == "__main__":
       SpawnFiles().debug = True
     args = args[1:]
   now = datetime.datetime.now()
-  starttime = f"{now.year}{now.month}{now.day}-{now.hour}.{now.minute}.{now.second}"
+  starttime = f"{now.year}{now.month}{now.day}-{now.hour}.{now.minute}"
 
-  ##  SpawnFiles().starttime = starttime
+  print(f"Output dir: {outputdir}")
+  if not outputdir:
+    outputdir = f"spawn_output_{starttime}"
+  SpawnFiles().setoutputdir(outputdir)
+
   configuration = Configuration\
                   (jobname=jobname,date=starttime,debug=debug,submit=submit,testing=testing)
-  SpawnFiles().open_new(f"logfile-{jobname}-{starttime}",key="logfile",dir=".")
+  SpawnFiles().open_new(f"logfile-{jobname}-{starttime}",key="logfile")
   queues = Queues()
   queues.testing = testing
   if os.path.exists(".spawnrc"):
