@@ -21,9 +21,6 @@ Example configuration file:
     account A-ccsc
     modules intel/18.0.2 impi/18.0.2
     
-    # set up directories
-    outputdir /your/dir/ectory/mybenchmark-%[date]
-    
     # point-to-point benchmark setup
     queue development
     nodes 2
@@ -42,13 +39,16 @@ Example configuration file:
 
 Demonspawn is a script that schedules SLURM job. Invocation:
 
-    python3 spawn.py [ -h ] [ -d ] [ -f ] configurationfile
+    python3 spawn.py [ options ] configurationfile
 
-Flags:
+Option flags:
 
-* `-h --help` : print help and quit
-* `-d --debug` : lots of debug output
-* `-f --filesonly` : generate all script files, but do not submit
+* `-h --help` : print help and quit.
+* `-d --debug` : lots of debug output.
+* `-f --filesonly` : generate all script files, but do not submit.
+* `-o --outputdir` + `dir` : specify output directory; omitting this gives a standard output name that includes the current date.
+* `-r --regression` + `dir` : only run the regression tests on output generated in a previous run.
+* `-c --compare` + `dir` : compare regression results in current output directory, and one generated in a previous run.
 
 The python script stays active until all submitted SLURM jobs have finished. This is strictly necessary only for handling regression tests after the jobs have finished, but the python script also handles proper closing of files. Thus it is a good idea to 
 
@@ -171,7 +171,7 @@ Further options:
 * `field:5` extract only the 5-th whitespace-separated field; this numbering is 1-based
 * `label:abcd` put a label in front of the regression line. This can be a literal string, or a macro. If multiple `label` options are given, they are all used, in the sequence specified, separated by a space character.
 
-If you want to run a regression on already generated output, run the configuration again, but with the `--regressiononly` flag.
+If you want to run a regression on already generated output, run the configuration again, but with the `--regression` flag.
 
 ## Limitations
 
@@ -184,6 +184,8 @@ If you want to run a regression on already generated output, run the configurati
 0.1 somewhere around `2021/12/01`: posted on reddit
 
 0.2 `2022/02/15`: adding module restore, `regressiononly` option
+
+0.3 logfile now goes into output dir, regression flag is now `regression`
 
 
 
