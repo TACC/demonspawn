@@ -1,11 +1,17 @@
 #!/usr/bin/env python
 #
+# Demonspawn
+# a utility for quickly generating a slew of batch jobs
+# good for benchmarking, regression testing, and such
+#
 # Victor Eijkhout
 # copyright 2020-2022
+#
+# version 0.3, see the Readme for details
+#
+# spawn.py : main diver file
+#
 
-#--------------------------------------------------------------------------------
-# System
-#from __future__ import print_function
 import copy
 import datetime
 import os
@@ -83,13 +89,11 @@ submitted as {}""".format(str(job),id))
 class Configuration():
   def __init__(self,**kwargs):
     self.configuration = {}
-    self.configuration["jobname"]   = kwargs.get("jobname","spawn")
+    for key,val in kwargs.items():
+      self.configuration[key] = val
     jobname = self.configuration["jobname"]
-    self.configuration["testing"]   = kwargs.get("testing",False)
-    self.configuration["submit"]    = kwargs.get("submit",True)
-    self.configuration["debug"]     = kwargs.get("debug",False)
-    self.configuration["date"]      = kwargs.get("date","00-00-00")
     self.configuration["modules"]   = "default"
+    self.configuration["time"] = "0:37:0"
     try :
       self.configuration["system"]    = os.environ["TACC_SYSTEM"]
     except:
@@ -164,24 +168,26 @@ if __name__ == "__main__":
   if sys.version_info[1]<8:
     print("This requires at least python 3.8"); sys.exit(1)
   args = sys.argv[1:]
-  testing = False                      
-  debug = False
-  submit  = True
-  jobname = "spawn"; outputdir = None
+  testing = False; debug = False; submit  = True
+  jobname = "spawn"; outputdir = None; comparedir = None
   rootdir = os.getcwd()
   while re.match("^-",args[0]):
     if args[0]=="-h":
-      print("Usage: python3 batch.py [ -h ]  [ -d --debug ] [ -f --filesonly ] [ -t --test ] [ -n name ] [ -r --regression dir ] [ -o --output dir ")
+      print("Usage: python3 batch.py [ -h ]  [ -d --debug ] [ -f --filesonly ] [ -t --test ] [ -n name ] [ -r --regression dir ] [ -o --output dir ] [ -c --compare dir ]")
       sys.exit(0)
     elif args[0] == "-n":
       args = args[1:]; jobname = args[0]
     elif args[0] in [ "-f", "--filesonly" ] :
       submit = False; testing = False
+    elif args[0] in [ "-o",  "--outputdir" ] :
+      args = args[1:]; outputdir = args[0]
     elif args[0] in [ "-r",  "--regression" ] :
       args = args[1:]; outputdir = args[0]
       testing = True; submit = False
-    elif args[0] in [ "-o",  "--outputdir" ] :
-      args = args[1:]; outputdir = args[0]
+    elif args[0] in [ "-c",  "--compare" ] :
+      args = args[1:]; comparedir = args[0]
+      if not os.path.exists(comparedir):
+        raise Exception(f"Compare directory <<{comparedir}>> does not exist")
     elif args[0] in [ "-t", "--test" ]:
       testing = True; submit = False
     elif args[0] in [ "-d", "--debug" ]:
@@ -196,9 +202,10 @@ if __name__ == "__main__":
     outputdir = f"spawn_output_{starttime}"
   SpawnFiles().setoutputdir(outputdir)
 
-  configuration = Configuration\
-                  (jobname=jobname,date=starttime,debug=debug,submit=submit,testing=testing)
   SpawnFiles().open_new(f"logfile-{jobname}-{starttime}",key="logfile")
+  configuration = Configuration\
+                  (jobname=jobname,date=starttime,debug=debug,submit=submit,testing=testing,
+                   outputdir=outputdir,comparedir=comparedir)
   queues = Queues()
   queues.testing = testing
   if os.path.exists(".spawnrc"):

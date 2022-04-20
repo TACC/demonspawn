@@ -1,11 +1,17 @@
 #!/usr/bin/env python
 #
+# Demonspawn
+# a utility for quickly generating a slew of batch jobs
+# good for benchmarking, regression testing, and such
+#
 # Victor Eijkhout
-# 2020-2022
+# copyright 2020-2022
+#
+# version 0.3, see the Readme for details
+#
+# jobsuite.py : classes for suites and jobs
+#
 
-#--------------------------------------------------------------------------------
-# System
-#from __future__ import print_function
 import copy
 import datetime
 from functools import reduce
@@ -116,19 +122,18 @@ class SpawnFiles():
     return self.instance.__getattr__(attr)
 
 class Job():
-    def __init__(self,**kwargs):
-        #default values to be overwritten later
+    def __init__(self,configuration,**kwargs):
+
+        self.configuration = configuration
+        for key in [ "account", "queue", "sbatch", "user", "time", ]:
+            self.__dict__[key] = self.configuration[key]
+
         self.suite = "paw"
-        self.queue = None
         self.nodes = 1; self.cores = 10; self.ppn = 1; self.threads = 0
         self.unique_name = None
 
         self.time = "01:00:00"
-        self.user = "nosuchuser"
-        self.account = "MyAccount"
-        self.sbatch = []
         self.runner = "./"
-        self.benchmark = "bench"
         self.trace = False; self.debug = False
         self.logfile,_,_ = SpawnFiles().open("logfile")
         self.regressionfile = None
@@ -146,8 +151,7 @@ class Job():
 
         self.cores = int( self.macros["nodes"] ) * int( self.macros["ppn"] )
         self.macros["cores"] = self.cores
-        if not self.unique_name:
-          self.unique_name = f"{self.benchmark}-{self.nodespec()}"
+        if not self.unique_name: raise Exception(f"Missing key: unique_name")
         tracestring = f"Creating job <<{self.unique_name}>> with <<{tracestring}>>"
 
         script_file_name = f"{self.unique_name}.script"
@@ -166,7 +170,7 @@ class Job():
  logout={self.slurm_output_file_name}
 """)
         if self.trace:
-            print(f"Written job file <<{self.script_file_name}>> for <<{self.benchmark}>>")
+            print(f"Written job file <<{self.script_file_name}>> for <<{self.unique_name}>>")
         if self.regression and not self.regressionfile:
             print("Trying to create regression job without regressionfile"); sys.exit(1)
         if self.trace: print(tracestring)
@@ -193,7 +197,7 @@ export OMP_NUM_THREADS=$threadcount
 export OMP_PROC_BIND=true
 """
     def script_contents(self):
-        bench_program = self.runner+self.programdir+"/"+self.benchmark
+        bench_program = self.runner+self.programdir+"/"+self.unique_name
         module_spec = self.modules_load_line()
         thread_spec = self.omp_thread_spec()
         sbatch = ""
@@ -214,7 +218,7 @@ f"""#!/bin/bash
 
 {module_spec}{thread_spec}
 cd {self.outputdir}
-program={self.programdir}/{self.benchmark}
+program={self.programdir}/{self.unique_name}
 if [ ! -f "$program" ] ; then 
   echo "Program does not exist: $program"
   exit 1
@@ -230,7 +234,7 @@ fi
           thread_spec = ""
         return f"N{self.nodes}-ppn{self.ppn}{thread_spec}"
     def __str__(self):
-        return f"{self.benchmark} N={self.nodes} cores={self.cores} threads={self.threads} regression={self.regression}"
+        return f"{self.unique_name} N={self.nodes} cores={self.cores} threads={self.threads} regression={self.regression}"
     def submit(self):
         if self.trace:
             print(f"sbatch: {self.script_file_name}")
@@ -535,7 +539,6 @@ class TestSuite():
 
     self.name = configuration.pop("name","testsuite")
     self.regression = configuration.get( "regression",False )
-    self.time = configuration.get("time","0:37:0")
 
     env = configuration.get("env",[])
     for e in env:
@@ -577,15 +580,13 @@ suites: {self.suites}
 
       count = 1
       jobs = []; jobids = []
-      # should queues be global?
-      jobqueue = self.configuration["queue"]
       jobnames = []
       for suite in self.suites:
           suitename = suite["name"]
           print(f"Suitename: {suitename}")
+          regressionfilename = f"regression-{suitename}.txt"
           if self.regression:
-            regressionfile,_,_ \
-              = SpawnFiles().open_new( f"regression-{suitename}.txt" )
+              regressionfile,_,_ = SpawnFiles().open_new( f"{regressionfilename}" )
           self.tracemsg(f"Test suite {self.name} run at {self.starttime}")
           self.logfile.write(str(self))
           for benchmark in suite["apps"]:
@@ -597,16 +598,13 @@ suites: {self.suites}
                     raise Exception(f"Job name conflict: {unique_name}")
                 else:
                     jobnames.append(unique_name)
-                job = Job(benchmark=benchmark,
+                job = Job(self.configuration,
                           unique_name=unique_name,
                           nodes=nodes,ppn=ppn,threads=threads,
-                          queue=jobqueue,time=self.time,
                           programdir=suite["dir"],
                           modules=self.modules,
                           regression=self.regression,regressionfile=regressionfile,
                           runner=suite["runner"],
-                          account=self.configuration["account"],user=self.configuration["user"],
-                          sbatch=self.configuration["sbatch"],
                           macros=self.configuration,
                           count=count,trace=True,
                         )
@@ -616,4 +614,11 @@ suites: {self.suites}
                     job.do_regression()
                 count += 1
       if submit:
-        Queues().wait_for_jobs()
+          Queues().wait_for_jobs()
+      if cdir := self.configuration["comparedir"]:
+          odir = self.configuration["outputdir"]
+          thisregress = open( f"{odir}/{regressionfilename}","r" )
+          compregress = open( f"{cdir}/{regressionfilename}","r" )
+          import difflib
+          diff = difflib.unified_diff( compregress.readlines(),thisregress.readlines() )
+          print(f"{diff}")
