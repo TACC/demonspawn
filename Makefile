@@ -2,7 +2,7 @@
 ####
 #### Makefile for the Demonspawn tool
 #### Victor Eijkhout eijkhout@tacc.utexas.edu
-#### 2020-2021
+#### 2020-2022
 ####
 ################################################################
 
@@ -23,4 +23,4 @@ localclean ::
 	    *.out[0-9]* *.slurm-out
 totalclean :: clean
 	@/bin/rm -rf log-* regress-* regression-* output-* script-* scripts-* \
-	    logfile-* spawn-* testsuite-*
+	    logfile-* spawn-* testsuite-* spawn_output*
