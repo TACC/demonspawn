@@ -164,6 +164,10 @@ This will grep through each result file in the suite, leaving the result in
 
     %[outputdir]/regression-%[suitename].txt
     
+Additionally, each job regression goes into a separate file
+
+    %[outputdir]/regression/<jobname>.out
+    
 Note: the regression specification is part of the suite definition, so it needs to come *before* the `suite` line.
 
 Further options:
@@ -172,6 +176,8 @@ Further options:
 * `label:abcd` put a label in front of the regression line. This can be a literal string, or a macro. If multiple `label` options are given, they are all used, in the sequence specified, separated by a space character.
 
 If you want to run a regression on already generated output, run the configuration again, but with the `--regression` flag.
+
+You can compare the regressions of two runs by using the `-c old_output_dir` option. This will compare the files in the `regression` subdirectory.
 
 ## Limitations
 
@@ -187,5 +193,4 @@ If you want to run a regression on already generated output, run the configurati
 
 0.3 logfile now goes into output dir, regression flag is now `regression`
 
-
-
+0.4 regressions go into separate files, new flag for regression comparing

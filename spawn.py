@@ -7,7 +7,7 @@
 # Victor Eijkhout
 # copyright 2020-2022
 #
-# version 0.3, see the Readme for details
+# version 0.4, see the Readme for details
 #
 # spawn.py : main diver file
 #
