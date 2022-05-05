@@ -61,7 +61,7 @@ class SpawnFiles():
   instance = None
   class __spawnfiles():
     def __init__(self):
-      self.files = {}
+      self.file_handles = {}; self.file_names = {}
       self.outputdir = None
       self.debug = False
     def setoutputdir(self,dir):
@@ -87,33 +87,43 @@ class SpawnFiles():
         pass
       return filedir
     def open(self,fil,key=None,dir=None,subdir=None,new=False):
+      ### return handle, dirname, filename, key
       print(f"Open <{fil}>> at <<{dir}/{subdir}>> new: <<{new}>>")
       filedir = self.ensurefiledir(dir,subdir)
       filename = fil
       if not key: key = filename
       if self.debug: print(f"Opening dir={filedir} file={filename} key={key}")
       fullname = f"{filedir}/{filename}"
-      if key not in self.files.keys():
+      if key not in self.file_handles.keys():
         h = open(fullname,"w")
-        self.files[key] = h
-        return h,filedir,filename
+        self.file_handles[key] = h; self.file_names[key] = fullname
+        return h,filedir,filename,key
       elif new:
         raise Exception(f"Key <<{key}>> File <<{fullname}>> already exists")
       else:
-        return self.files[key],filedir,filename
+        return self.file_handles[key],filedir,filename,key
     def open_new(self,fil,key=None,dir=None,subdir=None):
       if self.debug: print(f"Open new <{fil}>> at <<{dir}/{subdir}>>")
       return self.open(fil,key=key,dir=dir,subdir=subdir,new=True)
     def set(self,id,fil,dir=None):
       raise Exception("do not call set method")
       h,_ = self.open(fil,dir)
-      self.files[id] = h
+      self.file_handles[id] = h
     def get(self,id):
-      return self.files[id]
+      return self.file_handles[id]
+    def close_files(self,keys):
+        for k in keys:
+            if k is None or k not in self.file_handles.keys():
+                print(f"Suspicious attempt to close {k}")
+            else:
+                print(f"closing job: {k} => {self.file_names[k]}")
+                self.file_handles[k].close()
+        self.file_handles.pop(k,None)
+        self.file_names.pop(k,None)
     def __del__(self):
-      for f in self.files.keys():
+      for f in self.file_handles.keys():
         if self.debug: print(f"closing file: {f}")
-        self.files[f].close()
+        self.file_handles[f].close()
   def __new__(cls):
     if not SpawnFiles.instance:
       SpawnFiles.instance = SpawnFiles.__spawnfiles()
@@ -135,7 +145,7 @@ class Job():
         self.time = "01:00:00"
         self.runner = "./"
         self.trace = False; self.debug = False
-        self.logfile,_,_ = SpawnFiles().open("logfile")
+        self.logfile,_,_,_ = SpawnFiles().open("logfile")
         self.regressionfile = None
         self.macros = copy.copy( kwargs.pop("macros",{}) )
         self.set_has_not_been_submitted()
@@ -155,13 +165,10 @@ class Job():
         tracestring = f"Creating job <<{self.unique_name}>> with <<{tracestring}>>"
 
         script_file_name = f"{self.unique_name}.script"
-        script_file_handle,scriptdir,script_file_name \
+        script_file_handle,scriptdir,script_file_name,_ \
           = SpawnFiles().open_new( script_file_name,subdir="scripts" )
         self.script_file_name = f"{scriptdir}/{script_file_name}"
-        # we are assuming that the files wind up in a unique directory
-        # so we don't need the job number in the name
-        self.outputdir = SpawnFiles().ensurefiledir(subdir="output")
-        self.slurm_output_file_name = f"{self.outputdir}/{self.unique_name}.out" # .out%j"
+        self.slurm_output_file_name = f"{self.outputdir}/{self.unique_name}.out"
         script_file_handle.write(self.script_contents()+"\n")
         script_file_handle.close()
         self.logfile.write(f"""
@@ -218,7 +225,7 @@ f"""#!/bin/bash
 
 {module_spec}{thread_spec}
 cd {self.outputdir}
-program={self.programdir}/{self.unique_name}
+program={self.programdir}/{self.program_name}
 if [ ! -f "$program" ] ; then 
   echo "Program does not exist: $program"
   exit 1
@@ -294,8 +301,9 @@ fi
             status = status.strip()
         return status
     def regression_grep(self,output_file,rtest):
+        unique_name = self.unique_name
         greptext = re.sub("_"," ",rtest["grep"])
-        found = False
+        found = False; rkey = None
         for line in output_file:
             line = line.strip()
             if re.search(greptext,line):
@@ -313,18 +321,23 @@ fi
                             labels = labels+" "+macro_value( l, self.macros )
                     string = f"{labels} {string}"
                 self.logfile.write(f"File: {self.unique_name}\n{string}\n")
-                self.regressionfile.write(f"File: {self.unique_name}\n{string}\n")
+                self.regressionfile.write(f"File: {self.unique_name} Result: {string}\n")
+                rfile,_,_,rkey = SpawnFiles().open\
+                            (f"{self.unique_name}.out",subdir="regression",key=f"r-{unique_name}")
+                rfile.write(f"{string}\n")
+                break
         if not found:
             self.logfile.write\
               (f"{self.unique_name}: regression failed to find <<{greptext}>>\n")
             self.regressionfile.write\
               (f"{self.unique_name}: regression failed to find <<{greptext}>>\n")
+        return rkey
     def do_regression(self,filename=None):
         if not filename: filename = self.slurm_output_file_name
         if self.logfile:
             self.logfile.write(f"Doing regression <<{self.regression}>> on job {self.unique_name} to <<{self.slurm_output_file_name}>> and general regression file\n")
         print(f"Doing regression on {filename}")
-        rtest = {}
+        rtest = {}; rkey = None
         for kv in self.regression.split():
             if not re.search(":",kv):
                 print(f"ill-formed regression clause <<{kv}>>")
@@ -339,11 +352,12 @@ fi
         if "grep" in rtest.keys():
           try:
             with open(filename,"r") as output_file:
-              self.regression_grep(output_file,rtest)
+              rkey = self.regression_grep(output_file,rtest)
           except FileNotFoundError as e :
             print(f"Could not open file for regression: <<{e}>>")
         if self.logfile:
             self.logfile.write(f".. done regression\n")
+        return rkey
 def parse_suite(suite_option_list):
   suite = { "name" : "unknown", "runner" : "", "dir" : "./", "apps" : [] }
   for opt in suite_option_list:
@@ -580,13 +594,16 @@ suites: {self.suites}
 
       count = 1
       jobs = []; jobids = []
-      jobnames = []
+      ## for now all output goes in the same directory
+      outputdir = SpawnFiles().ensurefiledir(subdir="output")
+      jobnames = []; regressionfiles = []
+      ## iterate over suites
       for suite in self.suites:
           suitename = suite["name"]
           print(f"Suitename: {suitename}")
           regressionfilename = f"regression-{suitename}.txt"
           if self.regression:
-              regressionfile,_,_ = SpawnFiles().open_new( f"{regressionfilename}" )
+              regressionfile,_,_,k = SpawnFiles().open_new( f"{regressionfilename}" )
           self.tracemsg(f"Test suite {self.name} run at {self.starttime}")
           self.logfile.write(str(self))
           for benchmark in suite["apps"]:
@@ -599,7 +616,8 @@ suites: {self.suites}
                 else:
                     jobnames.append(unique_name)
                 job = Job(self.configuration,
-                          unique_name=unique_name,
+                          program_name=benchmark,unique_name=unique_name,
+                          outputdir=outputdir,
                           nodes=nodes,ppn=ppn,threads=threads,
                           programdir=suite["dir"],
                           modules=self.modules,
@@ -611,14 +629,34 @@ suites: {self.suites}
                 if submit:
                     Queues().enqueue(job)
                 elif job.regression:
-                    job.do_regression()
+                    regression_key = job.do_regression()
+                    regressionfiles.append( regression_key )
                 count += 1
       if submit:
           Queues().wait_for_jobs()
+      else:
+          SpawnFiles().close_files( regressionfiles )
+      print("All jobs finished, only regression comparison left to do")
       if cdir := self.configuration["comparedir"]:
-          odir = self.configuration["outputdir"]
-          thisregress = open( f"{odir}/{regressionfilename}","r" )
-          compregress = open( f"{cdir}/{regressionfilename}","r" )
-          import difflib
-          diff = difflib.unified_diff( compregress.readlines(),thisregress.readlines() )
-          print(f"{diff}")
+          cdir = cdir+"/regression"
+          odir = self.configuration["outputdir"]+"/regression"
+          for ofile in [ f for f in os.listdir(odir) 
+                         if os.path.isfile( os.path.join( odir,f ) ) ]:
+              opath = os.path.join( odir,ofile )
+              cpath = os.path.join( cdir,ofile )
+              if os.path.isfile( cpath ):
+                  print(f"Comparing: {ofile}: {opath} vs {cpath}")
+                  with open( opath,"r" ) as ohandle:
+                      oline = ohandle.readline().strip()
+                  with open( cpath,"r" ) as chandle:
+                      cline = chandle.readline().strip()
+                  print( f"Result: {oline}, compare: {cline}" )
+
+                  thisregress = open( f"{odir}/{ofile}","r" )
+                  thisregress = sorted( thisregress.readlines() )
+                  compregress = open( f"{cdir}/{ofile}","r" )
+                  compregress = sorted( compregress.readlines() )
+                  
+                  import difflib
+                  diff = difflib.context_diff( compregress,thisregress )
+                  ## sys.stdout.writelines(diff)
