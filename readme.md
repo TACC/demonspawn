@@ -177,7 +177,7 @@ Further options:
 
 If you want to run a regression on already generated output, run the configuration again, but with the `--regression` flag.
 
-You can compare the regressions of two runs by using the `-c old_output_dir` option. This will compare the files in the `regression` subdirectory.
+You can compare the regressions of two runs by using the `-c old_output_dir` option. This will compare the files in the `regression` subdirectory, leaving the results in a file `regression_compare`.
 
 ## Limitations
 
