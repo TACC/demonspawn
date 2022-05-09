@@ -636,8 +636,9 @@ suites: {self.suites}
           Queues().wait_for_jobs()
       else:
           SpawnFiles().close_files( regressionfiles )
-      print("All jobs finished, only regression comparison left to do")
       if cdir := self.configuration["comparedir"]:
+          print("All jobs finished, only regression comparison left to do")
+          comparison,_,_,_ = SpawnFiles().open_new("regression_compare")
           cdir = cdir+"/regression"
           odir = self.configuration["outputdir"]+"/regression"
           for ofile in [ f for f in os.listdir(odir) 
@@ -645,12 +646,12 @@ suites: {self.suites}
               opath = os.path.join( odir,ofile )
               cpath = os.path.join( cdir,ofile )
               if os.path.isfile( cpath ):
-                  print(f"Comparing: {ofile}: {opath} vs {cpath}")
+                  comparison.write(f"Comparing: {ofile}: {opath} vs {cpath}\n")
                   with open( opath,"r" ) as ohandle:
                       oline = ohandle.readline().strip()
                   with open( cpath,"r" ) as chandle:
                       cline = chandle.readline().strip()
-                  print( f"Result: {oline}, compare: {cline}" )
+                  comparison.write( f"Result: {oline}, compare: {cline}\n" )
 
                   thisregress = open( f"{odir}/{ofile}","r" )
                   thisregress = sorted( thisregress.readlines() )
