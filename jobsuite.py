@@ -290,6 +290,14 @@ fi
         return self.status=="POST"
     def set_done_running(self):
         self.status = "POST" # done running
+        ## filter crud from output file
+        with open(self.slurm_output_file_name,"r") as slurm_out:
+            lines = slurm_out.readlines()
+        with open(self.slurm_output_file_name,"w") as slurm_out:
+            for line in lines:
+                if not re.match("TACC",line):
+                    slurm_out.write(line)
+        ## regression
         if self.regression:
             self.do_regression()
     def get_status(self):
@@ -604,6 +612,7 @@ suites: {self.suites}
           regressionfilename = f"regression-{suitename}.txt"
           if self.regression:
               regressionfile,_,_,k = SpawnFiles().open_new( f"{regressionfilename}" )
+          else: regressionfile = None
           self.tracemsg(f"Test suite {self.name} run at {self.starttime}")
           self.logfile.write(str(self))
           for benchmark in suite["apps"]:
