@@ -111,6 +111,10 @@ class SpawnFiles():
       return self.open(fil,key=key,dir=dir,subdir=subdir,new=True)
     def get(self,id):
       return self.file_handles[id]
+    def close_by_path(self,path):
+      for fk in self.file_names.keys():
+        if self.file_names[fk]==path:
+          self.file_handles[fk].close()
     def close_files(self,keys):
         for k in keys:
             if k is None or k not in self.file_handles.keys():
@@ -130,6 +134,23 @@ class SpawnFiles():
     return SpawnFiles.instance
   def __getattr__(self,attr):
     return self.instance.__getattr__(attr)
+
+def regression_test_dict(regression):
+    ## split `regression' clause, return dict
+    rtest = {}
+    for kv in regression.split():
+        if not re.search(":",kv):
+            print(f"ill-formed regression clause <<{kv}>>")
+            continue
+        k,v = kv.split(":")
+        if k=="label":
+            if k not in rtest.keys():
+                rtest[k] = []
+            rtest[k].append(v)
+        else:
+            rtest[k] = v
+    return rtest
+
 
 class Job():
     def __init__(self,configuration,**kwargs):
@@ -361,21 +382,6 @@ fi
         return_value = self.regression_line_pick_field(the_line,rtest)
         return_value = self.regression_label_prepend(return_value,rtest)
         return return_value
-    def get_regression_tests(self):
-        ## split `regression' clause, return dict
-        rtest = {}
-        for kv in self.regression.split():
-            if not re.search(":",kv):
-                print(f"ill-formed regression clause <<{kv}>>")
-                continue
-            k,v = kv.split(":")
-            if k=="label":
-                if k not in rtest.keys():
-                    rtest[k] = []
-                rtest[k].append(v)
-            else:
-                rtest[k] = v
-        return rtest
     def apply_regression(self,rtest,filename):
         ## get regression result from filename
         rreturn = None; regger = None
@@ -395,7 +401,8 @@ fi
         if not filename: filename = self.slurm_output_file_name
         self.logwrite(f"Doing regression <<{self.regression}>> on job {self.unique_name} from <<{filename}>>")
         print(f"Doing regression on {filename}")
-        rtest = self.get_regression_tests()
+        rtest = regression_test_dict( self.regression )
+        ## rtest = self.get_regression_tests()
         rreturn = self.apply_regression(rtest,filename)
         rfilekey = None
         self.logwrite(f".. done regression on {self.unique_name}, giving: {rreturn}")
@@ -406,6 +413,7 @@ fi
         self.logwrite(f"writing regression result <<{rreturn}>> to global and <<{rfilename}>>")
         rfilehandle.write(rreturn+"\n")
         return rfilekey
+
 def parse_suite(suite_option_list):
   suite = { "name" : "unknown", "runner" : "", "dir" : "./", "apps" : [] }
   for opt in suite_option_list:
@@ -687,26 +695,43 @@ suites: {self.suites}
           SpawnFiles().close_files( regressionfiles )
       if cdir := self.configuration["comparedir"]:
           print("All jobs finished, only regression comparison left to do")
-          comparison,_,_,_ = SpawnFiles().open_new("regression_compare")
           cdir = cdir+"/regression"
           odir = self.configuration["outputdir"]+"/regression"
-          for ofile in [ f for f in os.listdir(odir) 
-                         if os.path.isfile( os.path.join( odir,f ) ) ]:
-              opath = os.path.join( odir,ofile )
-              cpath = os.path.join( cdir,ofile )
-              if os.path.isfile( cpath ):
-                  comparison.write(f"Comparing: {ofile}: {opath} vs {cpath}\n")
-                  with open( opath,"r" ) as ohandle:
-                      oline = ohandle.readline().strip()
-                  with open( cpath,"r" ) as chandle:
-                      cline = chandle.readline().strip()
-                  comparison.write( f"Result: {oline}, compare: {cline}\n" )
-
-                  thisregress = open( f"{odir}/{ofile}","r" )
-                  thisregress = sorted( thisregress.readlines() )
-                  compregress = open( f"{cdir}/{ofile}","r" )
-                  compregress = sorted( compregress.readlines() )
-                  
-                  import difflib
-                  diff = difflib.context_diff( compregress,thisregress )
-                  ## sys.stdout.writelines(diff)
+          self.regression_compare(cdir,odir)
+  def regression_compare(self,cdir,odir):
+        rtest = regression_test_dict( self.regression )
+        comparison,_,_,_ = SpawnFiles().open_new("regression_compare")
+        for ofile in [ f for f in os.listdir(odir) 
+                       if os.path.isfile( os.path.join( odir,f ) ) ]:
+            opath = os.path.join( odir,ofile )
+            SpawnFiles().close_by_path(opath)
+            cpath = os.path.join( cdir,ofile )
+            if os.path.isfile( cpath ):
+                comparison.write(f"Comparing: {ofile}: {opath} {cpath}\n")
+                with open( opath,"r" ) as ohandle:
+                    oline = ohandle.readline().strip()
+                with open( cpath,"r" ) as chandle:
+                    cline = chandle.readline().strip()
+                dev = ""
+                if "margin" in rtest.keys():
+                    margin = rtest["margin"]
+                    if perc := re.match(r'([0-1]+)p.*',margin):
+                        dev = float( perc.groups()[0] )/100
+                        try :
+                            oval = float( oline ); cval = float( cline )
+                            if (oval-cval)/cval>dev or (cval-oval)/oval>dev:
+                                dev = f", outside {dev} margin"
+                            else:
+                                dev = f", inside {dev} margin"
+                        except:
+                            dev = f", margin comparison failed"
+                comparison.write( f"Result: {oline}, compare: {cline}{dev}\n" )
+                    
+                # thisregress = open( f"{odir}/{ofile}","r" )
+                # thisregress = sorted( thisregress.readlines() )
+                # compregress = open( f"{cdir}/{ofile}","r" )
+                # compregress = sorted( compregress.readlines() )
+                
+                # import difflib
+                # diff = difflib.context_diff( compregress,thisregress )
+                # ## sys.stdout.writelines(diff)
