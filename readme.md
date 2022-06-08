@@ -113,7 +113,7 @@ For an MPI run you want to specify:
 
 Some macros related to running the benchmark programs.
 
-* `jobname` : this is by default "`spawn`". It is used for the name of the logfile. You can only once define this in your configuration.
+* `jobname` : this is by default "`spawn`". It is used for the name of the logfile. You can only once define this in your configuration. The logfile, by the way, has as time stamp, in case you re-use the output directory.
 * `env` : this is used to specify environment variables. At the moment this is strictly additive: each suite is started with the sum total of specified options at that point. Example:
 
     `env PETSC_OPTIONS -ksp_max_it 100 -ksp_monitor`
@@ -156,11 +156,17 @@ For example:
 
 ## Regression
 
-It is easy to run a regression on all output files of a suite.
+It is easy to run a regression on all output files of a suite by specifying the `regression` key. You can specify what to regress on:
 
     regression grep:Result
     
-This will grep through each result file in the suite, leaving the result in
+This will grep through each result file in the suite. You can also
+
+    regression line:last
+
+with possible options `first`, `last`.
+
+Regression results are written to a single file
 
     %[outputdir]/regression-%[suitename].txt
     
@@ -175,9 +181,11 @@ Further options:
 * `field:5` extract only the 5-th whitespace-separated field; this numbering is 1-based
 * `label:abcd` put a label in front of the regression line. This can be a literal string, or a macro. If multiple `label` options are given, they are all used, in the sequence specified, separated by a space character.
 
-If you want to run a regression on already generated output, run the configuration again, but with the `--regression` flag.
+If you want to run a regression on already generated output, run the configuration again, but with the `-r` or `--regression` flag.
 
-You can compare the regressions of two runs by using the `-c old_output_dir` option. This will compare the files in the `regression` subdirectory, leaving the results in a file `regression_compare`.
+You can compare the regressions of two runs by using the `-c old_output_dir` option. This will compare the files in the `regression` subdirectory, leaving the results in a file `regression_compare`. 
+
+Normally, regression comparison results in both values being written to the `regression_compare` file. However, numerical comparison is enabled by having an option `margin:10percent` in the `regression` line.
 
 ## Limitations
 
