@@ -64,12 +64,17 @@ class SpawnFiles():
       self.file_handles = {}; self.file_names = {}
       self.outputdir = None
       self.debug = False
+    def debug_print(self,msg):
+      if self.debug:
+        print(msg)
+        if logfile := self.get_by_key("logfile"):
+          logfile.write(msg+"\n")
     def setoutputdir(self,dir):
       if not os.path.exists(dir):
-        print(f"Creating output directory <<{dir}>>")
+        self.debug_print(f"Creating output directory <<{dir}>>")
         os.mkdir(dir)
       else:
-        print(f"Re-using old output directory <<{dir}>>")
+        self.debug_print(f"Re-using old output directory <<{dir}>>")
       self.outputdir = dir
     def ensurefiledir(self,dir=None,subdir=None):
       if dir:
@@ -81,18 +86,17 @@ class SpawnFiles():
       if subdir: filedir=f"{filedir}/{subdir}"
       try :
         os.mkdir( filedir )
-        if self.debug: print(f"Making dir <<{filedir}>>")
+        self.debug_print(f"Making dir <<{filedir}>>")
       except FileExistsError :
-        if self.debug: print(f"Directory <<{filedir}>> already exists")
+        self.debug_print(f"Directory <<{filedir}>> already exists")
         pass
       return filedir
     def open(self,fil,key=None,dir=None,subdir=None,new=False):
       ### return handle, dirname, filename, key
-      print(f"Open <{fil}>> at <<{dir}/{subdir}>> new: <<{new}>>")
       filedir = self.ensurefiledir(dir,subdir)
       filename = fil
       if not key: key = filename
-      if self.debug: print(f"Opening dir={filedir} file={filename} key={key}")
+      self.debug_print(f"Opening dir={filedir} file={filename} key={key}")
       fullname = f"{filedir}/{filename}"
       if key not in self.file_handles.keys():
         h = open(fullname,"w")
@@ -103,26 +107,26 @@ class SpawnFiles():
       else:
         return self.file_handles[key],filedir,filename,key
     def open_new(self,fil,key=None,dir=None,subdir=None):
-      if self.debug: print(f"Open new <{fil}>> at <<{dir}/{subdir}>>")
+      self.debug_print(f"Open new <{fil}>> at <<{dir}/{subdir}>>")
       return self.open(fil,key=key,dir=dir,subdir=subdir,new=True)
-    def set(self,id,fil,dir=None):
-      raise Exception("do not call set method")
-      h,_ = self.open(fil,dir)
-      self.file_handles[id] = h
     def get(self,id):
       return self.file_handles[id]
+    def close_by_path(self,path):
+      for fk in self.file_names.keys():
+        if self.file_names[fk]==path:
+          self.file_handles[fk].close()
     def close_files(self,keys):
         for k in keys:
             if k is None or k not in self.file_handles.keys():
-                print(f"Suspicious attempt to close {k}")
+                self.debug_print(f"Suspicious attempt to close {k}")
             else:
-                print(f"closing job: {k} => {self.file_names[k]}")
+                self.debug_print(f"closing job: {k} => {self.file_names[k]}")
                 self.file_handles[k].close()
         self.file_handles.pop(k,None)
         self.file_names.pop(k,None)
     def __del__(self):
       for f in self.file_handles.keys():
-        if self.debug: print(f"closing file: {f}")
+        self.debug_print(f"closing file: {f}")
         self.file_handles[f].close()
   def __new__(cls):
     if not SpawnFiles.instance:
@@ -130,6 +134,23 @@ class SpawnFiles():
     return SpawnFiles.instance
   def __getattr__(self,attr):
     return self.instance.__getattr__(attr)
+
+def regression_test_dict(regression):
+    ## split `regression' clause, return dict
+    rtest = {}
+    for kv in regression.split():
+        if not re.search(":",kv):
+            print(f"ill-formed regression clause <<{kv}>>")
+            continue
+        k,v = kv.split(":")
+        if k=="label":
+            if k not in rtest.keys():
+                rtest[k] = []
+            rtest[k].append(v)
+        else:
+            rtest[k] = v
+    return rtest
+
 
 class Job():
     def __init__(self,configuration,**kwargs):
@@ -146,7 +167,6 @@ class Job():
         self.runner = "./"
         self.trace = False; self.debug = False
         self.logfile,_,_,_ = SpawnFiles().open("logfile")
-        self.regressionfile = None
         self.macros = copy.copy( kwargs.pop("macros",{}) )
         self.set_has_not_been_submitted()
 
@@ -178,10 +198,13 @@ class Job():
 """)
         if self.trace:
             print(f"Written job file <<{self.script_file_name}>> for <<{self.unique_name}>>")
-        if self.regression and not self.regressionfile:
-            print("Trying to create regression job without regressionfile"); sys.exit(1)
-        if self.trace: print(tracestring)
-        if self.logfile: self.logfile.write(tracestring+"\n")
+        if self.regression and not self.global_regression_handle:
+            raise Exception("Trying to create regression job without global regressionfile")
+        ## if self.trace: print(tracestring)
+        self.logwrite(tracestring)
+    def logwrite(self,msg):
+        if self.logfile:
+            self.logfile.write(msg+"\n")
     def modules_load_line(self):
         if self.modules!="default":
           return f"""## custom modules
@@ -249,7 +272,7 @@ fi
         submitted = False
         for line in io.TextIOWrapper(p.stdout, encoding="utf-8"):
             line = line.strip()
-            if self.trace or self.debug:
+            if False and ( self.trace or self.debug ):
                 print( line )
             self.logfile.write(line+"\n")
             submitted = re.search("(Submitted.* )([0-9]+)",line)
@@ -290,6 +313,14 @@ fi
         return self.status=="POST"
     def set_done_running(self):
         self.status = "POST" # done running
+        ## filter crud from output file
+        with open(self.slurm_output_file_name,"r") as slurm_out:
+            lines = slurm_out.readlines()
+        with open(self.slurm_output_file_name,"w") as slurm_out:
+            for line in lines:
+                if not re.match("TACC",line):
+                    slurm_out.write(line)
+        ## regression
         if self.regression:
             self.do_regression()
     def get_status(self):
@@ -300,6 +331,26 @@ fi
         for status in io.TextIOWrapper(p.stdout, encoding="utf-8"):
             status = status.strip()
         return status
+    def regression_line_pick_field(self,line,rtest):
+        if "field" in rtest.keys():
+            fields = line.split(); ifield = rtest["field"]
+            try:
+                return fields[ int(ifield)-1 ]
+            except:
+                error = f"ERROR Can not extract field {ifield} from <<{line}>>"
+                print(error)
+                return None
+        else: return line
+    def regression_label_prepend(self,string,rtest):
+        if "label" in rtest.keys():
+            labels = ""
+            for l in rtest["label"]:
+                if labels=="":
+                    labels = macro_value( l, self.macros )
+                else:
+                    labels = labels+" "+macro_value( l, self.macros )
+            return f"{labels} {string}"
+        else: return string
     def regression_grep(self,output_file,rtest):
         unique_name = self.unique_name
         greptext = re.sub("_"," ",rtest["grep"])
@@ -308,20 +359,10 @@ fi
             line = line.strip()
             if re.search(greptext,line):
                 found = True
-                string = line
-                if "field" in rtest.keys():
-                    fields = line.split()
-                    string = fields[ int(rtest["field"])-1 ]
-                if "label" in rtest.keys():
-                    labels = ""
-                    for l in rtest["label"]:
-                        if labels=="":
-                            labels = macro_value( l, self.macros )
-                        else:
-                            labels = labels+" "+macro_value( l, self.macros )
-                    string = f"{labels} {string}"
+                string = self.regression_line_pick_field(line,rtest)
+                string = self.regression_label_prepend(string,rtest)
                 self.logfile.write(f"File: {self.unique_name}\n{string}\n")
-                self.regressionfile.write(f"File: {self.unique_name} Result: {string}\n")
+                self.global_regression_handle.write(f"File: {self.unique_name} Result: {string}\n")
                 rfile,_,_,rkey = SpawnFiles().open\
                             (f"{self.unique_name}.out",subdir="regression",key=f"r-{unique_name}")
                 rfile.write(f"{string}\n")
@@ -329,35 +370,50 @@ fi
         if not found:
             self.logfile.write\
               (f"{self.unique_name}: regression failed to find <<{greptext}>>\n")
-            self.regressionfile.write\
+            self.global_regression_handle.write\
               (f"{self.unique_name}: regression failed to find <<{greptext}>>\n")
         return rkey
+    def regression_line(self,output_file,rtest):
+        what_line = rtest["line"]
+        for line in output_file:
+            the_line = line.strip()
+            if what_line=="first":
+                break;
+        return_value = self.regression_line_pick_field(the_line,rtest)
+        return_value = self.regression_label_prepend(return_value,rtest)
+        return return_value
+    def apply_regression(self,rtest,filename):
+        ## get regression result from filename
+        rreturn = None; regger = None
+        if "line" in rtest.keys():
+            regger = self.regression_line
+        elif "grep" in rtest.keys():
+            regger = self.regression_grep
+        if regger:
+            try:
+                with open(filename,"r") as output_file:
+                    rreturn = regger(output_file,rtest)
+            except FileNotFoundError as e :
+                print(f"Could not open file for regression: <<{e}>>")
+        return rreturn
     def do_regression(self,filename=None):
+        ## regress on `filename', writing private and global file
         if not filename: filename = self.slurm_output_file_name
-        if self.logfile:
-            self.logfile.write(f"Doing regression <<{self.regression}>> on job {self.unique_name} to <<{self.slurm_output_file_name}>> and general regression file\n")
+        self.logwrite(f"Doing regression <<{self.regression}>> on job {self.unique_name} from <<{filename}>>")
         print(f"Doing regression on {filename}")
-        rtest = {}; rkey = None
-        for kv in self.regression.split():
-            if not re.search(":",kv):
-                print(f"ill-formed regression clause <<{kv}>>")
-                continue
-            k,v = kv.split(":")
-            if k=="label":
-                if k not in rtest.keys():
-                    rtest[k] = []
-                rtest[k].append(v)
-            else:
-                rtest[k] = v
-        if "grep" in rtest.keys():
-          try:
-            with open(filename,"r") as output_file:
-              rkey = self.regression_grep(output_file,rtest)
-          except FileNotFoundError as e :
-            print(f"Could not open file for regression: <<{e}>>")
-        if self.logfile:
-            self.logfile.write(f".. done regression\n")
-        return rkey
+        rtest = regression_test_dict( self.regression )
+        ## rtest = self.get_regression_tests()
+        rreturn = self.apply_regression(rtest,filename)
+        rfilekey = None
+        self.logwrite(f".. done regression on {self.unique_name}, giving: {rreturn}")
+        self.global_regression_handle.write(rreturn+"\n")
+        rfilename = f"{self.unique_name}.txt"
+        rfilehandle,_,_,rfilekey \
+          = SpawnFiles().open(rfilename,subdir="regression",new=True)
+        self.logwrite(f"writing regression result <<{rreturn}>> to global and <<{rfilename}>>")
+        rfilehandle.write(rreturn+"\n")
+        return rfilekey
+
 def parse_suite(suite_option_list):
   suite = { "name" : "unknown", "runner" : "", "dir" : "./", "apps" : [] }
   for opt in suite_option_list:
@@ -603,11 +659,12 @@ suites: {self.suites}
           print(f"Suitename: {suitename}")
           regressionfilename = f"regression-{suitename}.txt"
           if self.regression:
-              regressionfile,_,_,k = SpawnFiles().open_new( f"{regressionfilename}" )
+              global_regression_handle,_,_,k = SpawnFiles().open_new( f"{regressionfilename}" )
+          else: global_regression_handle = None
           self.tracemsg(f"Test suite {self.name} run at {self.starttime}")
           self.logfile.write(str(self))
           for benchmark in suite["apps"]:
-              self.tracemsg("="*16+"\n"+f"{count}: submitting suite=<<{suitename}>> benchmark=<<{benchmark}>> at {datetime.datetime.now()}")
+              self.tracemsg("="*16+"\n"+f"{count}: submitting suite=<<{suitename}>> benchmark=<<{benchmark}>>")
               for nodes,ppn,threads in self.nodes_cores_threads:
                 self.tracemsg(f" .. N={nodes} ppn={ppn} threads={threads}")
                 unique_name = f"{suitename}-{benchmark}-{nodes}-{ppn}-{threads}"
@@ -621,7 +678,7 @@ suites: {self.suites}
                           nodes=nodes,ppn=ppn,threads=threads,
                           programdir=suite["dir"],
                           modules=self.modules,
-                          regression=self.regression,regressionfile=regressionfile,
+                          regression=self.regression,global_regression_handle=global_regression_handle,
                           runner=suite["runner"],
                           macros=self.configuration,
                           count=count,trace=True,
@@ -638,26 +695,43 @@ suites: {self.suites}
           SpawnFiles().close_files( regressionfiles )
       if cdir := self.configuration["comparedir"]:
           print("All jobs finished, only regression comparison left to do")
-          comparison,_,_,_ = SpawnFiles().open_new("regression_compare")
           cdir = cdir+"/regression"
           odir = self.configuration["outputdir"]+"/regression"
-          for ofile in [ f for f in os.listdir(odir) 
-                         if os.path.isfile( os.path.join( odir,f ) ) ]:
-              opath = os.path.join( odir,ofile )
-              cpath = os.path.join( cdir,ofile )
-              if os.path.isfile( cpath ):
-                  comparison.write(f"Comparing: {ofile}: {opath} vs {cpath}\n")
-                  with open( opath,"r" ) as ohandle:
-                      oline = ohandle.readline().strip()
-                  with open( cpath,"r" ) as chandle:
-                      cline = chandle.readline().strip()
-                  comparison.write( f"Result: {oline}, compare: {cline}\n" )
-
-                  thisregress = open( f"{odir}/{ofile}","r" )
-                  thisregress = sorted( thisregress.readlines() )
-                  compregress = open( f"{cdir}/{ofile}","r" )
-                  compregress = sorted( compregress.readlines() )
-                  
-                  import difflib
-                  diff = difflib.context_diff( compregress,thisregress )
-                  ## sys.stdout.writelines(diff)
+          self.regression_compare(cdir,odir)
+  def regression_compare(self,cdir,odir):
+        rtest = regression_test_dict( self.regression )
+        comparison,_,_,_ = SpawnFiles().open_new("regression_compare")
+        for ofile in [ f for f in os.listdir(odir) 
+                       if os.path.isfile( os.path.join( odir,f ) ) ]:
+            opath = os.path.join( odir,ofile )
+            SpawnFiles().close_by_path(opath)
+            cpath = os.path.join( cdir,ofile )
+            if os.path.isfile( cpath ):
+                comparison.write(f"Comparing: {ofile}: {opath} {cpath}\n")
+                with open( opath,"r" ) as ohandle:
+                    oline = ohandle.readline().strip()
+                with open( cpath,"r" ) as chandle:
+                    cline = chandle.readline().strip()
+                dev = ""
+                if "margin" in rtest.keys():
+                    margin = rtest["margin"]
+                    if perc := re.match(r'([0-1]+)p.*',margin):
+                        dev = float( perc.groups()[0] )/100
+                        try :
+                            oval = float( oline ); cval = float( cline )
+                            if (oval-cval)/cval>dev or (cval-oval)/oval>dev:
+                                dev = f", outside {dev} margin"
+                            else:
+                                dev = f", inside {dev} margin"
+                        except:
+                            dev = f", margin comparison failed"
+                comparison.write( f"Result: {oline}, compare: {cline}{dev}\n" )
+                    
+                # thisregress = open( f"{odir}/{ofile}","r" )
+                # thisregress = sorted( thisregress.readlines() )
+                # compregress = open( f"{cdir}/{ofile}","r" )
+                # compregress = sorted( compregress.readlines() )
+                
+                # import difflib
+                # diff = difflib.context_diff( compregress,thisregress )
+                # ## sys.stdout.writelines(diff)
