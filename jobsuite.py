@@ -38,18 +38,29 @@ def module_string(txt):
 def macro_value( m,macros ):
     if m in macros.keys():
         return str(macros[m])
+    elif m in os.environ.keys():
+        return os.environ[m]
     else:
         return m
 
 def macros_substitute(line,macros):
+    print(f"macro substitution in <<{line}>>")
     subline = line
-    for m in macros.keys():
-        m_search = r'\%\[{}\]'.format(m)
-        if re.search(m_search,line):
-            replacement_text = macro_value( m,macros )
-            if m=="modules":
-                replacement_text = module_string(replacement_text)
-            subline = re.sub( m_search, replacement_text, subline )
+    while True:
+        if m_match := re.search(r'\%\[([^[]+)\]',subline):
+            macro = m_match.groups()[0]
+            print(f".. found macro <<{macro}>>")
+            value = macro_value(macro,macros)
+            subline = re.sub(r'\%\['+macro+r'\]',value,subline)
+            print(f".. giving <<{subline}>>")
+        else: break
+    # for m in macros.keys():
+    #     m_search = r'\%\[{}\]'.format(m)
+    #     if re.search(m_search,line):
+    #         replacement_text = macro_value( m,macros )
+    #         if m=="modules":
+    #             replacement_text = module_string(replacement_text)
+    #         subline = re.sub( m_search, replacement_text, subline )
     return subline
 
 ##
