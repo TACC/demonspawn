@@ -58,18 +58,21 @@ The configuration is specified split over the file on the commandline, and a `.s
 
 ### Macros
 
-The configuration, specified in the file given on the commandline, is completely macro based. A macro is defined in a line
+The configuration, specified in the file given on the commandline, is completely macro based. A macro is defined in a key/value line
 
     key value
+    otherkey value1 value2 value3
     
-where the value can be one or more words. Macros are evaluated with a `%[macro]` syntax, because why not have yet another sytax? Example:
+Macros keys are evaluated with a `%[macro]` syntax, because why not have yet another sytax? Example:
 
     key value
     otherkey another-%[key]
 
-Most keywords are a specifier, some have special meanings; see below.
+This syntax can also be used to substitute environment variables, if the key is not explicitly defined.
 
-The keyword `suite` triggers the execution of a benchmark suite.
+Some keys have special meanings; see below.
+
+The keyword `suite` is special in that it only defines a benchmark suite, but also triggers its execution.
 Thus, you can have multiple suites in one configuration file. Each is invoked with the current value of all macros, so you can redefine macros between suite invocations. See the example above, which uses different node and process counts for the point-to-point and collective tests.
 
 ### File structure
