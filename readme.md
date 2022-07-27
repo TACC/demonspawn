@@ -167,7 +167,9 @@ This will grep through each result file in the suite. You can also
 
     regression line:last
 
-with possible options `first`, `last`.
+with possible options `first`, `last`. Since a regression definition stays in effect for subsequent jobsuites, you can disable a previously specified regression with
+
+    regression none
 
 Regression results are written to a single file
 
