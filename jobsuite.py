@@ -620,6 +620,8 @@ class TestSuite():
 
     self.name = configuration.pop("name","testsuite")
     self.regression = configuration.get( "regression",False )
+    if self.regression in ["none", "None"]:
+      self.regression = None
 
     env = configuration.get("env",[])
     for e in env:
