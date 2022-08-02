@@ -415,6 +415,7 @@ fi
         rtest = regression_test_dict( self.regression )
         ## rtest = self.get_regression_tests()
         rreturn = self.apply_regression(rtest,filename)
+        if not rreturn: rreturn = "REGRESSION ERROR"
         rfilekey = None
         self.logwrite(f".. done regression on {self.unique_name}, giving: {rreturn}")
         self.global_regression_handle.write(rreturn+"\n")
