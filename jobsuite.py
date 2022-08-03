@@ -133,8 +133,8 @@ class SpawnFiles():
             else:
                 self.debug_print(f"closing job: {k} => {self.file_names[k]}")
                 self.file_handles[k].close()
-        self.file_handles.pop(k,None)
-        self.file_names.pop(k,None)
+            self.file_handles.pop(k,None)
+            self.file_names.pop(k,None)
     def __del__(self):
       for f in self.file_handles.keys():
         self.debug_print(f"closing file: {f}")
@@ -161,7 +161,6 @@ def regression_test_dict(regression):
         else:
             rtest[k] = v
     return rtest
-
 
 class Job():
     def __init__(self,configuration,**kwargs):
@@ -412,9 +411,11 @@ fi
         if not filename: filename = self.slurm_output_file_name
         self.logwrite(f"Doing regression <<{self.regression}>> on job {self.unique_name} from <<{filename}>>")
         print(f"Doing regression on {filename}")
+        if self.regression is None or self.regression=="none": return None
         rtest = regression_test_dict( self.regression )
         ## rtest = self.get_regression_tests()
         rreturn = self.apply_regression(rtest,filename)
+        if not rreturn: rreturn = "REGRESSION ERROR"
         rfilekey = None
         self.logwrite(f".. done regression on {self.unique_name}, giving: {rreturn}")
         self.global_regression_handle.write(rreturn+"\n")
@@ -620,6 +621,8 @@ class TestSuite():
 
     self.name = configuration.pop("name","testsuite")
     self.regression = configuration.get( "regression",False )
+    if self.regression in ["none", "None"]:
+      self.regression = None
 
     env = configuration.get("env",[])
     for e in env:
@@ -665,6 +668,7 @@ suites: {self.suites}
       outputdir = SpawnFiles().ensurefiledir(subdir="output")
       jobnames = []; regressionfiles = []
       ## iterate over suites
+      ## I think this only does one iteration.
       for suite in self.suites:
           suitename = suite["name"]
           print(f"Suitename: {suitename}")
@@ -708,17 +712,19 @@ suites: {self.suites}
           print("All jobs finished, only regression comparison left to do")
           cdir = cdir+"/regression"
           odir = self.configuration["outputdir"]+"/regression"
-          self.regression_compare(cdir,odir)
-  def regression_compare(self,cdir,odir):
+          if self.regression: ## we can have both regression and none in the same job
+              self.regression_compare(suitename,cdir,odir)
+  def regression_compare(self,suitename,cdir,odir):
         rtest = regression_test_dict( self.regression )
-        comparison,_,_,_ = SpawnFiles().open_new("regression_compare")
+        comparison,_,_,_ = SpawnFiles().open_new(f"regression_compare-{suitename}")
+        majorly_off = []
         for ofile in [ f for f in os.listdir(odir) 
                        if os.path.isfile( os.path.join( odir,f ) ) ]:
             opath = os.path.join( odir,ofile )
             SpawnFiles().close_by_path(opath)
             cpath = os.path.join( cdir,ofile )
             if os.path.isfile( cpath ):
-                comparison.write(f"Comparing: {ofile}: {opath} {cpath}\n")
+                comparison.write(f"Comparing: output={opath} compare={cpath}\n")
                 with open( opath,"r" ) as ohandle:
                     oline = ohandle.readline().strip()
                 with open( cpath,"r" ) as chandle:
@@ -728,21 +734,449 @@ suites: {self.suites}
                     margin = rtest["margin"]
                     if perc := re.match(r'([0-1]+)p.*',margin):
                         dev = float( perc.groups()[0] )/100
+                        violate = False
                         try :
                             oval = float( oline ); cval = float( cline )
-                            if (oval-cval)/cval>dev or (cval-oval)/oval>dev:
+                            violate = (oval-cval)/cval>dev or (cval-oval)/oval>dev
+                            if violate:
                                 dev = f", outside {dev} margin"
                             else:
                                 dev = f", inside {dev} margin"
                         except:
                             dev = f", margin comparison failed"
-                comparison.write( f"Result: {oline}, compare: {cline}{dev}\n" )
-                    
-                # thisregress = open( f"{odir}/{ofile}","r" )
-                # thisregress = sorted( thisregress.readlines() )
-                # compregress = open( f"{cdir}/{ofile}","r" )
-                # compregress = sorted( compregress.readlines() )
-                
-                # import difflib
-                # diff = difflib.context_diff( compregress,thisregress )
-                # ## sys.stdout.writelines(diff)
+                    report = f"Output: {oline}, compare: {cline}{dev}"
+                    if violate: majorly_off.append( f"{opath} {report}" )
+                else: report = f"Output: {oline}, compare: {cline}"
+                comparison.write( f"{report}\n" )
+        if len(majorly_off)>0:
+            comparison.write( "================ Major violations ================\n" )
+            for m in majorly_off:
+                comparison.write( m+"\n" )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
