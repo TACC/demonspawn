@@ -23,6 +23,7 @@ import time
 #--------------------------------------------------------------------------------
 # Local
 from jobsuite import *
+from pathlib import Path
 
 keyword_command = [ "nodes", "ppn", "suite", ]
 keyword_reserved = [ "system", "modules", 
@@ -210,6 +211,10 @@ if __name__ == "__main__":
   queues.testing = testing
   if os.path.exists(".spawnrc"):
     configuration.parse(".spawnrc")
+  else:
+    globalrc = f"{Path.home()}/.spawnrc"
+    if os.path.exists( globalrc ):
+      configuration.parse(globalrc)
   configuration.parse(args[0])
 
   # now activate all the suites
