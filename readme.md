@@ -54,7 +54,7 @@ The python script stays active until all submitted SLURM jobs have finished. Thi
 
     nohup python3 spawn.py myconf.txt &
     
-The configuration is specified split over the file on the commandline, and a `.spawnrc` file, which can be used for common options, such as your username, and the slurm account to bill your runs to. Since they have the exact same syntax, we will not distinguish between them, and mostly discuss the configuration file.
+The configuration is specified split over the file on the commandline, and a `.spawnrc` file, which can be used for common options, such as your username, and the slurm account to bill your runs to. The current directory is search first for the `.spawnrc` file, and then the home directory. This makes it possible to have system dependent settings. Since configuration files and `rc` files have the exact same syntax, we will not distinguish between them, and mostly discuss the configuration file.
 
 ### Macros
 
