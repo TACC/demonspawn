@@ -732,9 +732,9 @@ suites: {self.suites}
                 dev = ""
                 if "margin" in rtest.keys():
                     margin = rtest["margin"]
+                    violate = False
                     if perc := re.match(r'([0-1]+)p.*',margin):
                         dev = float( perc.groups()[0] )/100
-                        violate = False
                         try :
                             oval = float( oline ); cval = float( cline )
                             violate = (oval-cval)/cval>dev or (cval-oval)/oval>dev
