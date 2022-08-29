@@ -8,4 +8,4 @@ account A-ccsc
 queue development limit:1
 queue rtx limit:4
 queue normal limit:10
-
+queue small limit:10

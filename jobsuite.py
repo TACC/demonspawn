@@ -167,7 +167,11 @@ class Job():
 
         self.configuration = configuration
         for key in [ "account", "queue", "sbatch", "user", "time", ]:
-            self.__dict__[key] = self.configuration[key]
+            try :
+                self.__dict__[key] = self.configuration[key]
+            except KeyError:
+                print(f"\nConfiguration does not have required key <<{key}>>\n")
+                sys.exit(1)
 
         self.suite = "paw"
         self.nodes = 1; self.cores = 10; self.ppn = 1; self.threads = 0
