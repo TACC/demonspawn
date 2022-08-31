@@ -741,9 +741,13 @@ suites: {self.suites}
                         dev = float( perc.groups()[0] )/100
                         try :
                             oval = float( oline ); cval = float( cline )
-                            violate = (oval-cval)/cval>dev or (cval-oval)/oval>dev
-                            if violate:
-                                dev = f", outside {dev} margin"
+                            violate_more = (oval-cval)/cval>dev
+                            violate_less = (cval-oval)/oval>dev
+                            violate = violate_more or violate_less
+                            if violate_less:
+                                dev = f", outside {dev} margin: less"
+                            elif violate_more:
+                                dev = f", outside {dev} margin: more"
                             else:
                                 dev = f", inside {dev} margin"
                         except:
