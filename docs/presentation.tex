@@ -1,0 +1,65 @@
+% -*- latex -*-
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%
+%%%% Driver file for presentation about demonspawn
+%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\documentclass[11pt,headernav]{beamer}
+
+\beamertemplatenavigationsymbolsempty
+\usetheme{Madrid}%{Montpellier}
+\usecolortheme{seahorse}
+\setcounter{tocdepth}{1}
+
+\setbeamertemplate{footline}{\hskip1em Eijkhout: demonspawn\hfill
+  \hbox to 0in {\hss \includegraphics[scale=.1]{tacclogonew}}%
+  \hbox to 0in {\hss \arabic{page}\hskip 1in}}
+
+\usepackage{morewrites}
+\usepackage{array} %,multicol,multirow}
+\newcolumntype{R}{>{\hbox to 1.2em\bgroup\hss}{r}<{\egroup}}
+\newcolumntype{T}{>{\hbox to 8em\bgroup}{c}<{\hss\egroup}}
+
+\input commonmacs
+\input acromacs
+\input coursemacs
+\input listingmacs
+\input snippetmacs
+
+\lstset{basicstyle=\ttfamily,
+  showstringspaces=false,
+  commentstyle=\color{black},
+  keywords={nothing},
+  keywordstyle=\color{black}
+}
+
+%%%%
+%%%% Where is this course?
+%%%%
+
+\def\Location{}% redefine in the inex file
+\def\courseyear{2022}
+\def\Location{TACC HPC \courseyear}
+
+%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%% Document
+%%%%%%%%%%%%%%%%
+
+\begin{document}
+\parskip=10pt plus 5pt minus 3pt
+
+\title{Rapid Regression Testing with Demonspawn}
+\author{ Victor Eijkhout}
+\date{2022}
+
+\begin{frame}
+  \titlepage
+\end{frame}
+
+\input body
+
+\end{document}
+

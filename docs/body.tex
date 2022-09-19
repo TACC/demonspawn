@@ -1,0 +1,147 @@
+\begin{numberedframe}{Basic design}
+  \begin{itemize}
+  \item Benchmark suite software has been compiled
+  \item You want to fire off many SLURM jobs
+  \item Regression testing on output
+  \item Regression compare to previous run
+  \end{itemize}
+  \url{https://github.com/TACC/demonspawn}
+\end{numberedframe}
+
+\begin{numberedframe}{Example: OSU point-to-point suite}
+  Key-value specification:
+\begin{verbatim}
+jobname osubenchmark
+osudir %[STOCKYARD]/osubenchmark/mpi/
+
+# point-to-point
+queue small
+nodes 2
+ppn 1
+suite name:osu-ptp type:mpi dir:%[osudir]/pt2pt *
+
+# collective
+queue normal
+nodes 3,10,30,100
+regression line:last field:2 margin:30percent
+suite name:osu-col type:mpi dir:%[osudir]/collective *
+\end{verbatim}
+\end{numberedframe}
+
+\begin{numberedframe}{Macros}
+  Macros:
+  \begin{itemize}
+  \item keys from this configuration file, or
+  \item environment variables;
+  \item can be redefined;
+  \item using a new syntax because why not
+  \end{itemize}
+\begin{verbatim}
+osudir %[STOCKYARD]/osubenchmark/mpi/
+suite name:osu-ptp type:mpi dir:%[osudir]/pt2pt *
+\end{verbatim}
+\end{numberedframe}
+
+\begin{numberedframe}{Benchmark suite}
+  Multiple suites per configuration;
+  each \n{suite} line uses definitions in effect at that point
+\begin{verbatim}
+queue small
+nodes 2
+suite name:osu-ptp type:mpi dir:%[osudir]/pt2pt *
+
+queue normal
+nodes 3,10,30,100
+suite name:osu-col type:mpi dir:%[osudir]/collective *
+\end{verbatim}
+\end{numberedframe}
+
+\begin{numberedframe}{SLURM job specification}
+\begin{verbatim}
+queue small
+nodes 2
+ppn 1
+\end{verbatim}
+\end{numberedframe}
+
+\begin{numberedframe}{Queue spec in rc file}
+  Machine-dependent settings
+\begin{verbatim}
+system frontera
+user eijkhout
+account A-ccsc
+
+queue development limit:1
+queue rtx limit:4
+queue normal limit:10
+queue small limit:10  
+\end{verbatim}
+\end{numberedframe}
+
+\begin{numberedframe}{Collective suite}
+Loop over node counts:
+\begin{verbatim}
+queue normal
+nodes 3,10,30,100
+suite name:osu-col type:mpi dir:%[osudir]/collective *
+\end{verbatim}
+\end{numberedframe}
+
+\begin{numberedframe}{Regression specification}
+  Each slurm job outputs to its own file,\\
+  regression spec applies to that.
+
+  Keywords still under design. Let me know what you need~\ldots
+\begin{verbatim}
+regression line:last field:2 margin:30percent
+suite name:osu-ptp type:mpi dir:%[osudir]/pt2pt *
+\end{verbatim}
+\end{numberedframe}
+
+\begin{numberedframe}{Invocation with regression}
+  Option \n{-o outputdir}:
+\begin{verbatim}
+python3 spawn.py \
+        -o spawn_osu_60_mvap \
+        conf/osu.conf
+\end{verbatim}
+\end{numberedframe}
+
+\begin{numberedframe}{Regression comparison}
+  Option \n{-r outputdir}: only regression, no runs\\
+  option \n{-c prevdir}: compare regression to previous run
+\begin{verbatim}
+python3 spawn.py \
+        -r spawn_osu_60_mvap \
+        -c spawn_osu_60_impi/ \
+        conf/osu.conf
+\end{verbatim}
+\end{numberedframe}
+
+\begin{numberedframe}{Output structure}
+\begin{verbatim}
+[staff demonspawn:625] ls spawn_osu_60_impi
+logfile-spawn-2022829-10.22
+output/
+regression/
+regression-osu-col.txt
+regression-osu-ptp.txt
+scripts/
+\end{verbatim}
+\end{numberedframe}
+
+\begin{numberedframe}{Comparison output}
+\tiny
+\begin{verbatim}
+Comparing: output=spawn_osu_60_mvap/regression/osu-col-osu_ialltoall-3-1-0.txt compare=spawn_osu_60_impi//regression/osu-col-osu_ialltoall-3-1-0.txt
+Output: 502.89, compare: 518.98, inside 0.2 margin
+
+================ Major violations ================
+
+spawn_osu_60_mvap/regression/osu-col-osu_ialltoall-10-1-0.txt 
+    Output: 1778.99, compare: 2206.79, outside 0.2 margin: less
+spawn_osu_60_mvap/regression/osu-col-osu_iallreduce-100-1-0.txt
+    Output: 3367.70, compare: 1699.57, outside 0.2 margin: more
+\end{verbatim}
+\end{numberedframe}
+
