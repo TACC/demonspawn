@@ -7,7 +7,7 @@
 # Victor Eijkhout
 # copyright 2020-2022
 #
-# version 0.4, see the Readme for details
+# version 0.5, see the Readme for details
 #
 # jobsuite.py : classes for suites and jobs
 #
