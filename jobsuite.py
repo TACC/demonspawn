@@ -717,10 +717,13 @@ suites: {self.suites}
           cdir = cdir+"/regression"
           odir = self.configuration["outputdir"]+"/regression"
           if self.regression: ## we can have both regression and none in the same job
-              self.regression_compare(suitename,cdir,odir)
+              comparefile = self.regression_compare(suitename,cdir,odir)
+          print( f" .. comparison output in {comparefile}" )
   def regression_compare(self,suitename,cdir,odir):
         rtest = regression_test_dict( self.regression )
-        comparison,_,_,_ = SpawnFiles().open_new(f"regression_compare-{suitename}")
+        comparison,comp_dir,comp_fil,comp_key \
+          = SpawnFiles().open_new(f"regression_compare-{suitename}")
+        comparison_path = comp_dir+"/"+comp_fil
         majorly_off = []; within_margin = 0;
         for ofile in [ f for f in os.listdir(odir) 
                        if os.path.isfile( os.path.join( odir,f ) ) ]:
@@ -763,3 +766,6 @@ suites: {self.suites}
             comparison.write( f"================ Major violations: {len(majorly_off)} ================\n" )
             for m in majorly_off:
                 comparison.write( m+"\n" )
+        SpawnFiles().close_files( [comp_key] ) ## comparison.close()
+        #print( f" .. comparison in <<{comparison_path}>>" )
+        return comparison_path
